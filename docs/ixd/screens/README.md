@@ -4,4 +4,4 @@
 
 - 对话页面`DialogueScreen`
 - 白板页面`WhiteboardScreen`
-- 画布页面`CanvasScreen`
+- 笔记页面`NotebookScreen`

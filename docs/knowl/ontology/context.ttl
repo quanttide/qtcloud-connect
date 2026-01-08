@@ -1,0 +1,51 @@
+@prefix connect: <urn:qtcloud:connect:> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+
+# ===================================================================
+# Context 本体：表示一次交互的语义背景（与原始消息流松耦合）
+# ===================================================================
+
+connect:Context a rdfs:Class ;
+    rdfs:label "语境" ;
+    rdfs:comment "一次或多次交互所共享的语义背景，用于支撑记忆、推理与上下文加载。不依赖原始消息结构，可通过外部标识引用会话。" .
+
+# ----------------------------
+# 核心属性
+# ----------------------------
+
+# 参与者（多值）
+connect:hasParticipant a rdf:Property ;
+    rdfs:label "包含参与者" ;
+    rdfs:domain connect:Context ;
+    rdfs:range  connect:Agent ;
+    rdfs:comment "参与此语境的沟通主体（如用户、AI）" .
+
+# 创建/更新时间（关键时间线索）
+connect:timestamp a rdf:Property ;
+    rdfs:label "时间戳" ;
+    rdfs:domain connect:Context ;
+    rdfs:range  xsd:dateTime ;
+    rdfs:comment "语境生成或最后更新的时间，用于时序关联" .
+
+# 自然语言摘要（用于检索或注入）
+connect:summary a rdf:Property ;
+    rdfs:label "摘要" ;
+    rdfs:domain connect:Context ;
+    rdfs:range  xsd:string ;
+    rdfs:comment "对语境内容的简明自然语言描述" .
+
+# 外部会话引用（松耦合的关键）
+connect:refersToSession a rdf:Property ;
+    rdfs:label "引用会话" ;
+    rdfs:domain connect:Context ;
+    rdfs:range  xsd:string ;  # 或 xsd:anyURI
+    rdfs:comment "指向外部系统中原始会话的唯一标识符（如 session_id），非强制，支持无会话上下文" .
+
+# 语境类型（可选，用于未来扩展）
+connect:contextType a rdf:Property ;
+    rdfs:label "语境类型" ;
+    rdfs:domain connect:Context ;
+    rdfs:range  xsd:string ;
+    rdfs:comment "例如 'ongoing-dialogue', 'user-profile', 'project-context' 等" .

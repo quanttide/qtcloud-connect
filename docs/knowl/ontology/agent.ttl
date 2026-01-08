@@ -1,0 +1,17 @@
+@prefix connect: <urn:qtcloud:connect:> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+# 沟通主体：参与对话的基本角色
+connect:Agent a rdfs:Class ;
+    rdfs:label "沟通主体"@zh ;
+    rdfs:comment "参与沟通的实体，可以是人类或人工智能系统"@zh .
+
+# 具体子类型
+connect:AI a connect:Agent ;
+    rdfs:label "人工智能"@zh ;
+    rdfs:comment "作为沟通一方的 AI 系统"@zh .
+
+connect:Human a connect:Agent ;
+    rdfs:label "人类"@zh ;
+    rdfs:comment "作为沟通一方的人类用户或同事"@zh .

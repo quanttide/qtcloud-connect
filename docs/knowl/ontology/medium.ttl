@@ -1,0 +1,55 @@
+@prefix connect: <urn:qtcloud:connect:> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+
+# ===================================================================
+# Medium 本体：交互的原始载体（消息、语音、文件等）
+# ===================================================================
+
+connect:Medium a rdfs:Class ;
+    rdfs:label "交互媒介"@zh ;
+    rdfs:comment "用户与系统之间传递信息的原始载体实例，如消息、语音、文档等"@zh .
+
+# 具体子类型（可扩展）
+connect:TextMessage a connect:Medium ;
+    rdfs:label "文本消息"@zh .
+
+connect:VoiceClip a connect:Medium ;
+    rdfs:label "语音片段"@zh .
+
+connect:Document a connect:Medium ;
+    rdfs:label "文档"@zh .
+
+connect:Email a connect:Medium ;
+    rdfs:label "电子邮件"@zh .
+
+# ----------------------------
+# Medium 核心属性
+# ----------------------------
+
+# 发送者
+connect:sentBy a rdf:Property ;
+    rdfs:domain connect:Medium ;
+    rdfs:range  connect:Agent .
+
+# 接收者（可多值）
+connect:sentTo a rdf:Property ;
+    rdfs:domain connect:Medium ;
+    rdfs:range  connect:Agent .
+
+# 时间戳
+connect:mediumTimestamp a rdf:Property ;
+    rdfs:domain connect:Medium ;
+    rdfs:range  xsd:dateTime .
+
+# 内容（根据类型不同，可为文本、URI、base64 等）
+connect:content a rdf:Property ;
+    rdfs:domain connect:Medium ;
+    rdfs:range  rdfs:Literal .  # 或 xsd:anyURI（若存外部链接）
+
+# 所属会话/流 ID（用于聚合）
+connect:belongsToStream a rdf:Property ;
+    rdfs:domain connect:Medium ;
+    rdfs:range  xsd:string ;  # e.g., "stream-xyz"
+    rdfs:comment "标识该媒介所属的交互流（如对话会话、工单流程）"@zh .

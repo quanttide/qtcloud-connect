@@ -1,9 +1,11 @@
 """
-备忘
+Memo 领域模型
 """
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional
+from datetime import datetime
 
 
 class MemoStatus(Enum):
@@ -17,4 +19,8 @@ class MemoStatus(Enum):
 
 @dataclass
 class Memo:
-    status: MemoStatus
+    """备忘"""
+    id: str
+    content: str
+    status: Optional[MemoStatus] = None
+    timestamp: Optional[datetime] = None

@@ -1,7 +1,7 @@
 """
 Python SDK 测试
 """
-from quanttide_connect import ContextExtractor, Memo
+from qtcloud_connect import ContextExtractor, Memo
 from datetime import datetime
 
 

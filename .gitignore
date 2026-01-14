@@ -1,0 +1,15 @@
+# IntelliJ IDEA
+*.iml
+.idea/
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# macOS
+.DS_Store

@@ -1,116 +1,166 @@
 """
-qtcloud-connect CLI — 通过 provider API 调用的人机沟通共识引擎客户端。
-
-运行：
-    uv run python main.py
+qtcloud-connect CLI — 通过 provider API 调用的人机沟通共识引擎。
 """
 
 from __future__ import annotations
 
-import argparse
-import shlex
+from typing import Optional
 
 import httpx
+import typer
 
-BASE_URL = "http://127.0.0.1:8000/api/v1"
+app = typer.Typer()
+BASE_URL = "http://127.0.0.1:8000/api"
 
 
-def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="qtcloud-connect CLI")
-    parser.add_argument("--url", default=BASE_URL, help="Provider API base URL")
-    args = parser.parse_args(argv)
-    base = args.url.rstrip("/")
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    url: str = typer.Option(BASE_URL, "--url", help="Provider API base URL"),
+) -> None:
+    """qtcloud-connect — 人机沟通共识引擎 CLI"""
+    if ctx.invoked_subcommand is not None:
+        return
+    repl(url)
 
-    client = httpx.Client(base_url=base)
-    conversation_id = "default"
 
-    print("qtcloud-connect CLI — 输入消息开始对话，输入 /help 查看命令")
-    print("=" * 50)
+def repl(base_url: str) -> None:
+    """交互式 REPL"""
+    client = httpx.Client(base_url=base_url.rstrip("/"))
+
+    typer.echo("qtcloud-connect CLI — 输入消息开始对话，输入 /help 查看命令")
+    typer.echo("=" * 50)
 
     while True:
         try:
             raw = input(">>> ").strip()
         except (EOFError, KeyboardInterrupt):
-            print("\n再见。")
+            typer.echo("\n再见。")
             break
 
         if not raw:
             continue
 
         if raw.startswith("/"):
-            parts = shlex.split(raw)
-            cmd = parts[0].lower()
+            cmd, *parts = raw[1:].split(maxsplit=1)
+            cmd = cmd.lower()
 
-            if cmd in ("/quit", "/exit"):
-                print("再见。")
+            if cmd in ("quit", "exit"):
+                typer.echo("再见。")
                 break
 
-            elif cmd == "/help":
-                print("""命令列表：
+            elif cmd == "help":
+                typer.echo("""命令：
   /quit              退出
   /messages          查看所有消息
   /consensuses       查看所有共识
   /confirm <id>      确认共识
   /deprecate <id>    废弃共识
-  /history           （本地暂不支持）
   /help              显示此帮助""")
 
-            elif cmd == "/messages":
+            elif cmd == "messages":
                 resp = client.get("/messages")
                 if resp.is_success:
                     for m in resp.json():
-                        print(f"  [{m['id'][:8]}] {m['role']}: {m['content'][:60]}...")
+                        typer.echo(f"  [{m['id'][:8]}] {m['role']}: {m['content'][:60]}")
                 else:
-                    print(f"请求失败: {resp.status_code}")
+                    typer.echo(f"请求失败: {resp.status_code}")
 
-            elif cmd == "/consensuses":
+            elif cmd == "consensuses":
                 resp = client.get("/consensuses")
                 if resp.is_success:
                     for c in resp.json():
-                        msg_ids = ", ".join(c["related_message_ids"])
-                        print(f"  [{c['id'][:8]}] {c['status']}: {c['content'][:60]}")
-                        if msg_ids:
-                            print(f"         ↳ 消息: {msg_ids}")
+                        typer.echo(f"  [{c['id'][:8]}] {c['status']}: {c['content'][:60]}")
+                        if c["related_message_ids"]:
+                            typer.echo(f"         ↳ 消息: {', '.join(m[:8] for m in c['related_message_ids'])}")
                 else:
-                    print(f"请求失败: {resp.status_code}")
+                    typer.echo(f"请求失败: {resp.status_code}")
 
-            elif cmd == "/confirm" and len(parts) >= 2:
-                resp = client.post("/consensuses/confirm", json={"consensus_id": parts[1]})
+            elif cmd == "confirm" and parts:
+                resp = client.post("/consensuses/confirm", json={"consensus_id": parts[0]})
                 if resp.is_success:
                     data = resp.json()
-                    print(f"已确认共识 [{data['id'][:8]}]: {data['status']}")
+                    typer.echo(f"已确认共识 [{data['id'][:8]}]")
                 else:
-                    print("未找到该共识")
+                    typer.echo("未找到该共识")
 
-            elif cmd == "/deprecate" and len(parts) >= 2:
-                resp = client.post("/consensuses/deprecate", json={"consensus_id": parts[1]})
+            elif cmd == "deprecate" and parts:
+                resp = client.post("/consensuses/deprecate", json={"consensus_id": parts[0]})
                 if resp.is_success:
                     data = resp.json()
-                    print(f"已废弃共识 [{data['id'][:8]}]: {data['status']}")
+                    typer.echo(f"已废弃共识 [{data['id'][:8]}]")
                 else:
-                    print("未找到该共识")
+                    typer.echo("未找到该共识")
 
             else:
-                print(f"未知命令: {cmd}")
+                typer.echo(f"未知命令: {raw}")
 
             continue
 
-        # 正常对话
-        print("  [发送消息...]", end=" ", flush=True)
-        resp = client.post("/chat", json={
-            "message": raw,
-            "conversation_id": conversation_id,
-        })
-
+        typer.echo("  [发送消息...]", nl=False)
+        resp = client.post("/chat", json={"message": raw, "conversation_id": "default"})
         if not resp.is_success:
-            print(f"请求失败: {resp.status_code}")
+            typer.echo(f" 请求失败: {resp.status_code}")
             continue
 
         data = resp.json()
-        print("✓")
-        print(f"  {data['reply']}")
+        typer.echo(" ✓")
+        typer.echo(f"  {data['reply']}")
+
+
+@app.command()
+def messages(
+    url: str = typer.Option(BASE_URL, "--url", help="Provider API base URL"),
+) -> None:
+    """查看所有消息"""
+    client = httpx.Client(base_url=url.rstrip("/"))
+    resp = client.get("/messages")
+    if resp.is_success:
+        for m in resp.json():
+            typer.echo(f"  [{m['id'][:8]}] {m['role']}: {m['content'][:60]}")
+
+
+@app.command()
+def consensuses(
+    url: str = typer.Option(BASE_URL, "--url", help="Provider API base URL"),
+) -> None:
+    """查看所有共识"""
+    client = httpx.Client(base_url=url.rstrip("/"))
+    resp = client.get("/consensuses")
+    if resp.is_success:
+        for c in resp.json():
+            typer.echo(f"  [{c['id'][:8]}] {c['status']}: {c['content'][:60]}")
+
+
+@app.command()
+def confirm(
+    consensus_id: str = typer.Argument(help="共识 ID"),
+    url: str = typer.Option(BASE_URL, "--url", help="Provider API base URL"),
+) -> None:
+    """确认共识"""
+    client = httpx.Client(base_url=url.rstrip("/"))
+    resp = client.post("/consensuses/confirm", json={"consensus_id": consensus_id})
+    if resp.is_success:
+        typer.echo(f"已确认共识 [{consensus_id[:8]}]")
+    else:
+        typer.echo("未找到该共识", err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
+def deprecate(
+    consensus_id: str = typer.Argument(help="共识 ID"),
+    url: str = typer.Option(BASE_URL, "--url", help="Provider API base URL"),
+) -> None:
+    """废弃共识"""
+    client = httpx.Client(base_url=url.rstrip("/"))
+    resp = client.post("/consensuses/deprecate", json={"consensus_id": consensus_id})
+    if resp.is_success:
+        typer.echo(f"已废弃共识 [{consensus_id[:8]}]")
+    else:
+        typer.echo("未找到该共识", err=True)
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
-    import sys
-    main(argv=sys.argv[1:])
+    app()

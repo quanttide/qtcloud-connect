@@ -14,7 +14,7 @@ def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-DB_PATH = "data/connect.db"
+DB_PATH = "data/qtcloud-connect.db"
 
 
 class Storage:

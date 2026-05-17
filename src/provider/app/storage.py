@@ -14,14 +14,14 @@ def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-DB_PATH = "connect.db"
+DB_PATH = "data/connect.db"
 
 
 class Storage:
     """SQLite 存储，三表共用。"""
 
     def __init__(self, path: str = DB_PATH) -> None:
-        self._db = sqlite3.connect(path)
+        self._db = sqlite3.connect(path, check_same_thread=False)
         self._db.row_factory = sqlite3.Row
         self._init_tables()
 

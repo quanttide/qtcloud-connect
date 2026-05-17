@@ -26,7 +26,9 @@ def main(
 
 def repl(base_url: str) -> None:
     """交互式 REPL"""
-    client = httpx.Client(base_url=base_url.rstrip("/"))
+    client = httpx.Client(
+        base_url=base_url.rstrip("/"), timeout=httpx.Timeout(120.0, connect=5.0)
+    )
 
     typer.echo("qtcloud-connect CLI — 输入消息开始对话，输入 /help 查看命令")
     typer.echo("=" * 50)
@@ -62,7 +64,9 @@ def repl(base_url: str) -> None:
                 resp = client.get("/messages")
                 if resp.is_success:
                     for m in resp.json():
-                        typer.echo(f"  [{m['id'][:8]}] {m['role']}: {m['content'][:60]}")
+                        typer.echo(
+                            f"  [{m['id'][:8]}] {m['role']}: {m['content'][:60]}"
+                        )
                 else:
                     typer.echo(f"请求失败: {resp.status_code}")
 
@@ -70,14 +74,20 @@ def repl(base_url: str) -> None:
                 resp = client.get("/consensuses")
                 if resp.is_success:
                     for c in resp.json():
-                        typer.echo(f"  [{c['id'][:8]}] {c['status']}: {c['content'][:60]}")
+                        typer.echo(
+                            f"  [{c['id'][:8]}] {c['status']}: {c['content'][:60]}"
+                        )
                         if c["related_message_ids"]:
-                            typer.echo(f"         ↳ 消息: {', '.join(m[:8] for m in c['related_message_ids'])}")
+                            typer.echo(
+                                f"         ↳ 消息: {', '.join(m[:8] for m in c['related_message_ids'])}"
+                            )
                 else:
                     typer.echo(f"请求失败: {resp.status_code}")
 
             elif cmd == "confirm" and parts:
-                resp = client.post("/consensuses/confirm", json={"consensus_id": parts[0]})
+                resp = client.post(
+                    "/consensuses/confirm", json={"consensus_id": parts[0]}
+                )
                 if resp.is_success:
                     data = resp.json()
                     typer.echo(f"已确认共识 [{data['id'][:8]}]")
@@ -85,7 +95,9 @@ def repl(base_url: str) -> None:
                     typer.echo("未找到该共识")
 
             elif cmd == "deprecate" and parts:
-                resp = client.post("/consensuses/deprecate", json={"consensus_id": parts[0]})
+                resp = client.post(
+                    "/consensuses/deprecate", json={"consensus_id": parts[0]}
+                )
                 if resp.is_success:
                     data = resp.json()
                     typer.echo(f"已废弃共识 [{data['id'][:8]}]")
@@ -113,7 +125,9 @@ def messages(
     url: str = typer.Option(BASE_URL, "--url", help="Provider API base URL"),
 ) -> None:
     """查看所有消息"""
-    client = httpx.Client(base_url=url.rstrip("/"))
+    client = httpx.Client(
+        base_url=url.rstrip("/"), timeout=httpx.Timeout(120.0, connect=5.0)
+    )
     resp = client.get("/messages")
     if resp.is_success:
         for m in resp.json():
@@ -125,7 +139,9 @@ def consensuses(
     url: str = typer.Option(BASE_URL, "--url", help="Provider API base URL"),
 ) -> None:
     """查看所有共识"""
-    client = httpx.Client(base_url=url.rstrip("/"))
+    client = httpx.Client(
+        base_url=url.rstrip("/"), timeout=httpx.Timeout(120.0, connect=5.0)
+    )
     resp = client.get("/consensuses")
     if resp.is_success:
         for c in resp.json():
@@ -138,7 +154,9 @@ def confirm(
     url: str = typer.Option(BASE_URL, "--url", help="Provider API base URL"),
 ) -> None:
     """确认共识"""
-    client = httpx.Client(base_url=url.rstrip("/"))
+    client = httpx.Client(
+        base_url=url.rstrip("/"), timeout=httpx.Timeout(120.0, connect=5.0)
+    )
     resp = client.post("/consensuses/confirm", json={"consensus_id": consensus_id})
     if resp.is_success:
         typer.echo(f"已确认共识 [{consensus_id[:8]}]")
@@ -153,7 +171,9 @@ def deprecate(
     url: str = typer.Option(BASE_URL, "--url", help="Provider API base URL"),
 ) -> None:
     """废弃共识"""
-    client = httpx.Client(base_url=url.rstrip("/"))
+    client = httpx.Client(
+        base_url=url.rstrip("/"), timeout=httpx.Timeout(120.0, connect=5.0)
+    )
     resp = client.post("/consensuses/deprecate", json={"consensus_id": consensus_id})
     if resp.is_success:
         typer.echo(f"已废弃共识 [{consensus_id[:8]}]")

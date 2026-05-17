@@ -20,5 +20,6 @@ testpaths = ["tests"]
 dev = [
     "httpx>=0.28.1",
     "pytest>=9",
+    "pytest-asyncio>=1.3.0",
     "pytest-cov>=7",
 ]

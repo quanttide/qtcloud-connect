@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-import requests
+from quanttide_agent import LLM
 
 from app.config import settings
 
@@ -24,8 +24,11 @@ MESSAGE_SYSTEM_PROMPT = """你是 qtcloud-connect 的消息智能体（System 1�
 
 class MessageAgent:
     def __init__(self) -> None:
-        self.api_key = settings.llm_api_key.get_secret_value()
-        self.base_url = "https://api.deepseek.com"
+        self._llm = LLM(
+            model="deepseek-v4-flash",
+            base_url="https://api.deepseek.com",
+            api_key=settings.llm_api_key.get_secret_value(),
+        )
 
     def get_consensus_summary(self, confirmed_consensuses: list[dict]) -> str:
         if not confirmed_consensuses:
@@ -48,11 +51,5 @@ class MessageAgent:
             messages.append(h)
         messages.append({"role": "user", "content": user_message})
 
-        resp = requests.post(
-            f"{self.base_url}/v1/chat/completions",
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            json={"model": "deepseek-v4-flash", "messages": messages, "stream": False},
-            timeout=60,
-        )
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+        resp = self._llm.chat(messages)
+        return resp.content

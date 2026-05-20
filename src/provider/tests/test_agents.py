@@ -12,9 +12,9 @@ from app.storage import Storage
 
 
 class TestMessageAgent:
-    def setup_method(self) -> None:
+    @patch("app.agents.message_agent.LLM")
+    def setup_method(self, mock_llm: MagicMock) -> None:
         self.agent = MessageAgent()
-        self.agent.api_key = "test-key"
 
     def test_consensus_summary_empty(self) -> None:
         summary = self.agent.get_consensus_summary([])
@@ -25,23 +25,23 @@ class TestMessageAgent:
         summary = self.agent.get_consensus_summary(consensuses)
         assert "用 PostgreSQL" in summary
 
-    @patch("app.agents.message_agent.requests.post")
-    def test_reply_sends_correct_prompt(self, mock_post: MagicMock) -> None:
-        mock_post.return_value.ok = True
-        mock_post.return_value.json.return_value = {
-            "choices": [{"message": {"content": "好的，就用 PostgreSQL。"}}]
-        }
+    def test_reply_sends_correct_prompt(self) -> None:
+        self.agent._llm.chat.return_value.content = "好的，就用 PostgreSQL。"
         reply = self.agent.reply(
             user_message="用什么数据库？",
             history=[],
             confirmed_consensuses=[{"content": "用 PostgreSQL"}],
         )
-        sent = mock_post.call_args[1]["json"]
-        assert "用 PostgreSQL" in sent["messages"][0]["content"]
+        sent = self.agent._llm.chat.call_args[1]
+        assert "用 PostgreSQL" in str(sent)
         assert reply == "好的，就用 PostgreSQL。"
 
 
 class TestConsensusAgent:
+    @patch("app.agents.consensus_agent.LLM")
+    def setup_method(self, mock_llm: MagicMock) -> None:
+        self._mock_llm = mock_llm
+
     def test_parse_action_full(self) -> None:
         agent = ConsensusAgent.__new__(ConsensusAgent)
         result = agent._parse_action(
@@ -54,76 +54,56 @@ class TestConsensusAgent:
         agent = ConsensusAgent.__new__(ConsensusAgent)
         assert agent._parse_action("content: 测试") is None
 
+    @patch("app.agents.consensus_agent.ConsensusAgent.__init__", lambda self, storage, consensus_svc, relation_svc: None)
     def test_execute_propose(self, storage: Storage) -> None:
         con_svc = ConsensusService(storage)
         rel_svc = RelationService(storage)
         agent = ConsensusAgent(storage, con_svc, rel_svc)
-        agent.api_key = "test-key"
         agent._execute(
             {"action": "propose", "content": "PostgreSQL", "related_messages": []}
         )
         assert len(storage.list_consensuses(ConsensusStatus.proposed)) == 1
 
+    @patch("app.agents.consensus_agent.ConsensusAgent.__init__", lambda self, storage, consensus_svc, relation_svc: None)
     def test_execute_confirm(self, storage: Storage) -> None:
         con_svc = ConsensusService(storage)
         rel_svc = RelationService(storage)
         agent = ConsensusAgent(storage, con_svc, rel_svc)
-        agent.api_key = "test-key"
         c = con_svc.propose("PostgreSQL")
         agent._execute({"action": "confirm", "content": "PostgreSQL"})
         assert storage.get_consensus(c.id).status == ConsensusStatus.confirmed
 
+    @patch("app.agents.consensus_agent.ConsensusAgent.__init__", lambda self, storage, consensus_svc, relation_svc: None)
     def test_execute_deprecate(self, storage: Storage) -> None:
         con_svc = ConsensusService(storage)
         rel_svc = RelationService(storage)
         agent = ConsensusAgent(storage, con_svc, rel_svc)
-        agent.api_key = "test-key"
         c = con_svc.propose("PostgreSQL")
         con_svc.confirm(c.id)
         agent._execute({"action": "deprecate", "content": "PostgreSQL"})
         assert storage.get_consensus(c.id).status == ConsensusStatus.deprecated
 
-    @patch("app.agents.consensus_agent.requests.post")
-    def test_observe_propose(self, mock_post: MagicMock, storage: Storage) -> None:
-        mock_post.return_value.ok = True
-        mock_post.return_value.json.return_value = {
-            "choices": [
-                {
-                    "message": {
-                        "content": """
+    def test_observe_propose(self, storage: Storage) -> None:
+        con_svc = ConsensusService(storage)
+        rel_svc = RelationService(storage)
+        agent = ConsensusAgent(storage, con_svc, rel_svc)
+        agent._llm.chat.return_value.content = """
 [CONSENSUS_ACTION]
 action: propose
 content: 团队用 PostgreSQL
 related_messages: []
 [/CONSENSUS_ACTION]
 """
-                    }
-                }
-            ]
-        }
-        con_svc = ConsensusService(storage)
-        rel_svc = RelationService(storage)
-        agent = ConsensusAgent(storage, con_svc, rel_svc)
-        agent.api_key = "test-key"
-        from quanttide_connect.models import Message
-
         user_msg = Message(content="我们用 PostgreSQL", role=Role.user)
         agent_msg = Message(content="好的", role=Role.agent)
         agent.observe(user_msg, agent_msg, [])
         assert len(storage.list_consensuses(ConsensusStatus.proposed)) >= 1
 
-    @patch("app.agents.consensus_agent.requests.post")
-    def test_observe_no_action(self, mock_post: MagicMock, storage: Storage) -> None:
-        mock_post.return_value.ok = True
-        mock_post.return_value.json.return_value = {
-            "choices": [{"message": {"content": "[NO_ACTION]"}}]
-        }
+    def test_observe_no_action(self, storage: Storage) -> None:
         con_svc = ConsensusService(storage)
         rel_svc = RelationService(storage)
         agent = ConsensusAgent(storage, con_svc, rel_svc)
-        agent.api_key = "test-key"
-        from quanttide_connect.models import Message
-
+        agent._llm.chat.return_value.content = "[NO_ACTION]"
         agent.observe(
             Message(content="hi", role=Role.user),
             Message(content="ok", role=Role.agent),

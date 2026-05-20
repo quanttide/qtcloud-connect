@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import re
 
-import requests
+from quanttide_agent import LLM
 from quanttide_connect.models import ConsensusStatus, Message
 from quanttide_connect.services.consensus import ConsensusService
 from quanttide_connect.services.relation import RelationService
@@ -46,8 +46,11 @@ class ConsensusAgent:
         self.storage = storage
         self.consensus_svc = consensus_svc
         self.relation_svc = relation_svc
-        self.api_key = settings.llm_api_key.get_secret_value()
-        self.base_url = "https://api.deepseek.com"
+        self._llm = LLM(
+            model="deepseek-v4-flash",
+            base_url="https://api.deepseek.com",
+            api_key=settings.llm_api_key.get_secret_value(),
+        )
 
     def observe(
         self, user_message: Message, agent_message: Message, history: list[dict]
@@ -76,14 +79,8 @@ class ConsensusAgent:
             {"role": "user", "content": ctx},
         ]
 
-        resp = requests.post(
-            f"{self.base_url}/v1/chat/completions",
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            json={"model": "deepseek-v4-flash", "messages": messages, "stream": False},
-            timeout=60,
-        )
-        resp.raise_for_status()
-        self._handle_instructions(resp.json()["choices"][0]["message"]["content"])
+        resp = self._llm.chat(messages)
+        self._handle_instructions(resp.content)
 
     def _handle_instructions(self, output: str) -> None:
         if "[NO_ACTION]" in output or "[/CONSENSUS_ACTION]" not in output:

@@ -1,6 +1,10 @@
 [package]
-name = "qtcloud-connect"
+name = "qtcloud-connect-cli"
 version = "0.1.0"
 edition = "2024"
+
+[[bin]]
+name = "qtcloud-connect"
+path = "src/main.rs"
 
 [dependencies]

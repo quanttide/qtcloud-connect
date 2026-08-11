@@ -1,11 +1,5 @@
-mod chat;
-mod cli_config;
-mod config;
-mod email;
-mod notice;
-mod report;
-
 use clap::{Parser, Subcommand};
+use qtcloud_connect_cli::notice;
 
 #[derive(Subcommand)]
 enum Commands {

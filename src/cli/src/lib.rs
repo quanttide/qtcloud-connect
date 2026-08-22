@@ -3,5 +3,7 @@ pub mod cli_config;
 pub mod config;
 pub mod email;
 pub mod extract;
+pub mod mail;
 pub mod notice;
+pub mod referral;
 pub mod report;

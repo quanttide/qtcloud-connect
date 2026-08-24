@@ -531,11 +531,22 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "qtcloud-connect-send",
  "quanttide-agent",
  "regex",
  "serde",
  "serde_json",
  "serde_yaml",
+]
+
+[[package]]
+name = "qtcloud-connect-send"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

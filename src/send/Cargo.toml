@@ -1,0 +1,15 @@
+[package]
+name = "qtcloud-connect-send"
+version = "0.1.0"
+edition = "2024"
+description = "量潮沟通云发送通道：lark-cli 邮件发送封装、模板渲染机制、发送日志"
+
+[lib]
+name = "qtcloud_connect_send"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+chrono = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

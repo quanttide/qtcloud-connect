@@ -3,7 +3,7 @@ use chrono::Local;
 use clap::Args;
 use std::path::PathBuf;
 
-use crate::mail::{LarkMailer, SendLogEntry, append_send_log};
+use qtcloud_connect_send::mail::{LarkMailer, SendLogEntry, append_send_log};
 
 #[derive(Args)]
 pub struct ReferralArgs {

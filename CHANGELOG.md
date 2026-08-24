@@ -7,9 +7,9 @@
 
 ## [0.0.3] - 2026-08-24
 
-### Added
+### Changed
 
-- CLI: 发送通道抽为独立 crate `qtcloud-connect-send`（`src/send/`，tag `send/v0.1.0`），供招聘域 qtrecurit 复用
+- CLI: 发送通道能力（LarkMailer / 模板机制 / 发送日志）保留在 CLI 内，模板机制保留、不写具体模板内容
 
 ### Removed
 

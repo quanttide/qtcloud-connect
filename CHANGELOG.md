@@ -5,11 +5,17 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html) 规范。
 
-## [0.0.3] - 2026-08-24
+## [0.1.0-alpha.1] - 2026-08-24
+
+### Added
+
+- CLI: `mail` 招聘邮件封装（P1-P4）——模板化发送（草稿→确认→发送→日志）、模板查看、发送日志查询
+- CLI: 模板机制（`MailTemplate` / `render_template` / `parse_vars`），机制保留、不写具体模板内容
 
 ### Changed
 
-- CLI: 发送通道能力（LarkMailer / 模板机制 / 发送日志）保留在 CLI 内，模板机制保留、不写具体模板内容
+- CLI: 发送通道能力（LarkMailer / 模板机制 / 发送日志）保留在 CLI 内（曾抽独立 crate 后又撤销，通道能力回归 CLI）
+- CLI: 包元数据补齐（description / license / repository），对齐 qtcloud-devops-cli 惯例
 
 ### Removed
 

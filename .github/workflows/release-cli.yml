@@ -22,8 +22,10 @@ jobs:
         id: version
         run: echo "value=${GITHUB_REF_NAME#cli/}" >> $GITHUB_OUTPUT
       - name: validate version
-        run: ./scripts/validate-version.sh "${{ github.ref_name }}"
+        if: startsWith(github.ref, 'refs/tags/')
+        run: ./scripts/validate-version.sh "${{ github.ref_name }}" "
       - name: validate changelog
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           VERSION="${{ steps.version.outputs.value }}"
           # CHANGELOG 在仓库根目录（src/cli/../../CHANGELOG.md）

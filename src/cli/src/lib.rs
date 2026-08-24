@@ -5,5 +5,4 @@ pub mod email;
 pub mod extract;
 pub mod mail;
 pub mod notice;
-pub mod referral;
 pub mod report;

@@ -2,8 +2,7 @@ use chrono::Local;
 use clap::{Args, Subcommand};
 
 use qtcloud_connect_send::mail::{
-    LarkMailer, MailTemplate, SendLogEntry, append_send_log, parse_vars, read_send_log,
-    render_template,
+    LarkMailer, SendLogEntry, append_send_log, read_send_log,
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -18,7 +17,7 @@ pub struct MailArgs {
 
 #[derive(Subcommand)]
 pub enum MailAction {
-    /// 模板化发送邮件：渲染模板 → 生成草稿 → 人工确认 → 发送 → 回写状态
+    /// 发送邮件：渲染正文 → 生成草稿 → 人工确认 → 发送 → 回写状态
     Send(MailSendArgs),
     /// 查看/列出邮件模板
     Template(MailTemplateArgs),
@@ -32,15 +31,11 @@ pub struct MailSendArgs {
     #[arg(long)]
     pub to: String,
 
-    /// 模板名：referral（内推）/ training（实训邀请）/ exam（考核说明）/ raw（自定义正文）
-    #[arg(long, default_value = "raw")]
-    pub template: String,
-
-    /// 主题（raw 模板必填）
+    /// 主题（必填）
     #[arg(long)]
     pub subject: Option<String>,
 
-    /// 正文（raw 模板必填；或用 --body-file）
+    /// 正文（或 --body-file）
     #[arg(long)]
     pub body: Option<String>,
 
@@ -51,10 +46,6 @@ pub struct MailSendArgs {
     /// 附件路径（逗号分隔）
     #[arg(long)]
     pub attach: Option<String>,
-
-    /// 模板变量：key=value（逗号分隔多个），如 name=张三,company=示例企业
-    #[arg(long)]
-    pub vars: Option<String>,
 
     /// 发送日志回写路径（默认 $SEND_LOG_DIR/send.log）
     #[arg(long)]
@@ -71,11 +62,7 @@ pub struct MailSendArgs {
 
 #[derive(Args)]
 pub struct MailTemplateArgs {
-    /// 模板名：referral / training / exam
-    #[arg(long)]
-    pub name: Option<String>,
-
-    /// 列出所有模板
+    /// 列出可用模板
     #[arg(long)]
     pub list: bool,
 }
@@ -85,61 +72,6 @@ pub struct MailLogArgs {
     /// 显示最近 N 条日志
     #[arg(long, default_value = "20")]
     pub tail: usize,
-}
-
-// ─────────────────────────────────────────────────────────────
-// 模板（三套话术，源自招聘工作/回复问题清单；PR3 随业务迁至 qtrecurit）
-// ─────────────────────────────────────────────────────────────
-
-pub const TEMPLATES: &[MailTemplate] = &[
-    MailTemplate {
-        name: "referral",
-        description: "企业内推沟通话术：向候选人确认是否接受推荐",
-        subject: "量潮人才推荐沟通",
-        body: r#"你好，
-
-我们认真查看了你的简历，认为你的经验和能力都很突出。考虑到目前量潮的规模还比较小，入职后可能无法完全匹配你的职业期待和发展空间，因此我们正在考虑将一些能力优秀的候选人推荐到更大的平台，帮助你们在更适合的岗位上发挥所长。今天想先听听你对此的想法和意愿。
-
-我们此前与西安交通大学樊老师有合作基础，樊老师的一位学生也曾在量潮实习。目前该学生在另一家公司实习，并负责协助所在公司招聘实习生，使用其个人内推码。基于樊老师为该学生提供的担保，我们与樊老师及该学生之间形成了信任关系，因此正在共同建立以内部推荐为主的招聘渠道，用于向该公司推荐合适的实习生人选。
-
-关于你后续的安排，我们目前是这样考虑的：如果你接受推荐，为了便于统一管理和对外沟通，我们会以"量潮课堂的学生"这一身份为你进行推荐；如果你想继续留在量潮，就保持现在的安排不变；如果你暂时不想接受推荐，也不打算留在量潮，也请直接告诉我们，我们会尊重你的个人决定，不会勉强。这样主要是为了让推荐流程更规范，也避免信息混乱，同时也尊重你自己的选择。"#,
-    },
-    MailTemplate {
-        name: "training",
-        description: "实训邀请沟通话术：邀请通过初筛的候选人加入实训基地",
-        subject: "量潮实训基地邀请",
-        body: r#"{{name}}你好，
-
-感谢你完成量潮科技的准入问卷。经评估，你已通过初筛，正式受邀加入量潮实训基地。
-
-实训基地是量潮科技对外招聘考核的组成部分。你将在这里通过完成真实的工作任务接受考核，以实际产出代替答卷。
-
-请扫码加入实训基地群（见附件二维码），进群后修改昵称为「{{name}}-岗位意向」。
-
-具体考核规则将在群内发布，请关注群公告和资料。
-
-期待在基地见到你。
-
-量潮科技 招聘团队"#,
-    },
-    MailTemplate {
-        name: "exam",
-        description: "招聘考核说明话术：邀请候选人直接参与招聘考核",
-        subject: "量潮招聘考核邀请",
-        body: r#"你好，
-
-我们认真看了你此前提交的材料及招聘流程中的整体表现，认为你目前展现出的能力和潜力符合量潮进一步招聘考核的要求，因此想邀请你直接参与招聘考核，也想先听听你的想法和意愿。
-
-量潮目前的人才选拔以实际成果为核心，考核标准是：在相对开放的环境中，自主发现并提出有价值的问题，通过自己的方式创造实际成果。我们的考核不会以固定题目为主，而是希望你真正创造一个东西，以过程和产出作为判断依据。如果你暂时不适合这种方式，也可以选择实训等其他培养路径，通过阶段化任务逐步积累能力。需要提前说明的是，通过招聘考核代表你达到了进入量潮团队的人才选拔标准，但最终是否进入团队，还要看届时公司的岗位和项目情况。如果暂时没有合适岗位，我们也会优先考虑让你进入长期实训，或保留后续合作的可能。
-
-如果你愿意参与招聘考核，可以直接回复我们，确认意愿后，我们会与你沟通具体考核方式和下一步安排。如果你希望先通过实训参与量潮，或者暂时不打算继续任何后续安排，也可以直接告诉我们。
-
-期待你的回复。"#,
-    },
-];
-
-pub fn find_template(name: &str) -> Option<&'static MailTemplate> {
-    TEMPLATES.iter().find(|t| t.name == name)
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -155,66 +87,32 @@ pub fn run(args: &MailArgs) {
 }
 
 fn cmd_send(args: &MailSendArgs) {
-    let vars = parse_vars(args.vars.as_deref());
-
-    let (subject, body) = if args.template == "raw" {
-        let subject = args.subject.clone().unwrap_or_else(|| {
-            eprintln!("错误: raw 模板需要 --subject");
+    let subject = args.subject.clone().unwrap_or_else(|| {
+        eprintln!("错误: 需要 --subject");
+        std::process::exit(1);
+    });
+    let body = match (&args.body, &args.body_file) {
+        (Some(b), _) => b.clone(),
+        (None, Some(f)) => match std::fs::read_to_string(f) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("错误: 读取正文文件失败: {e}");
+                std::process::exit(1);
+            }
+        },
+        (None, None) => {
+            eprintln!("错误: 需要 --body 或 --body-file");
             std::process::exit(1);
-        });
-        let body = match (&args.body, &args.body_file) {
-            (Some(b), _) => b.clone(),
-            (None, Some(f)) => match std::fs::read_to_string(f) {
-                Ok(c) => c,
-                Err(e) => {
-                    eprintln!("错误: 读取正文文件失败: {e}");
-                    std::process::exit(1);
-                }
-            },
-            (None, None) => {
-                eprintln!("错误: raw 模板需要 --body 或 --body-file");
-                std::process::exit(1);
-            }
-        };
-        (subject, body)
-    } else {
-        let tpl = match find_template(&args.template) {
-            Some(t) => t,
-            None => {
-                eprintln!(
-                    "错误: 未知模板 '{}'。可用: referral / training / exam / raw",
-                    args.template
-                );
-                std::process::exit(1);
-            }
-        };
-        (tpl.subject.to_string(), render_template(tpl, &vars))
-    };
-
-    // training 模板默认附带群二维码（$TRAINING_QR_PATH，敏感内容不放进仓库）
-    let attach = if args.attach.is_some() {
-        args.attach.clone()
-    } else if args.template == "training" {
-        match std::env::var("TRAINING_QR_PATH") {
-            Ok(p) => Some(p),
-            Err(_) => {
-                eprintln!(
-                    "警告: training 模板需要群二维码附件，请设置 TRAINING_QR_PATH 环境变量指向二维码图片"
-                );
-                None
-            }
         }
-    } else {
-        None
     };
 
-    // 未确认时只生成草稿
+    // 通道只发送；招聘话术内容由 qtrecurit CLI 渲染后传入
     let mailer = LarkMailer;
     match mailer.send(
         &args.to,
         &subject,
         &body,
-        attach.as_deref(),
+        args.attach.as_deref(),
         args.confirm_send,
         args.dry_run,
     ) {
@@ -244,7 +142,7 @@ fn cmd_send(args: &MailSendArgs) {
                     time: Local::now().to_rfc3339(),
                     to: args.to.clone(),
                     subject: subject.clone(),
-                    template: args.template.clone(),
+                    template: "raw".into(),
                     status,
                     draft_id: id,
                     note: None,
@@ -268,32 +166,13 @@ fn cmd_send(args: &MailSendArgs) {
 
 fn cmd_template(args: &MailTemplateArgs) {
     if args.list {
-        println!("可用模板:");
-        for t in TEMPLATES {
-            println!("  {} — {}", t.name, t.description);
-        }
+        println!("可用模板（通道侧）:");
+        println!("  raw — 自定义正文（--subject/--body/--body-file）");
+        println!("招聘话术模板（referral/training/exam）已迁至 qtrecurit CLI");
         return;
     }
-    let name = match &args.name {
-        Some(n) => n,
-        None => {
-            eprintln!(
-                "用法: qtcloud-connect mail template --list 或 --name <referral|training|exam>"
-            );
-            std::process::exit(1);
-        }
-    };
-    let tpl = match find_template(name) {
-        Some(t) => t,
-        None => {
-            eprintln!("未知模板: {name}");
-            std::process::exit(1);
-        }
-    };
-    println!(
-        "=== {} ===\n主题: {}\n\n{}",
-        tpl.name, tpl.subject, tpl.body
-    );
+    eprintln!("用法: qtcloud-connect mail template --list");
+    std::process::exit(1);
 }
 
 fn cmd_log(args: &MailLogArgs) {
@@ -326,34 +205,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_find_template_all_three() {
-        assert!(find_template("referral").is_some());
-        assert!(find_template("training").is_some());
-        assert!(find_template("exam").is_some());
-        assert!(find_template("unknown").is_none());
-    }
-
-    #[test]
-    fn test_render_no_unresolved_vars_in_default_templates() {
-        // training 模板含 {{name}} 占位符，渲染后必须被替换
-        let tpl = find_template("training").unwrap();
-        let rendered = render_template(tpl, &[("name".to_string(), "测试".to_string())]);
-        assert!(
-            !rendered.contains("{{"),
-            "渲染后仍有未解析占位符: {:?}",
-            rendered
-        );
-        // referral 和 exam 无占位符
-        for t in [
-            find_template("referral").unwrap(),
-            find_template("exam").unwrap(),
-        ] {
-            assert!(
-                !t.body.contains("{{"),
-                "模板 {} 有占位符: {:?}",
-                t.name,
-                t.body
-            );
-        }
+    fn test_template_list_output_no_panic() {
+        // 通道侧无内置话术模板（业务内容已随迁招聘域）
+        let args = MailTemplateArgs { list: true };
+        // 只验证不 panic；输出走 stdout
+        cmd_template(&args);
     }
 }

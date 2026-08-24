@@ -19,54 +19,48 @@ qtcloud-connect/
     └── studio/ # 前端工作台（Flutter）— 用户的工作站
 ```
 
-## CLI 使用（招聘邮件封装）
+## CLI 使用（发送通道）
 
 > 前置：安装 lark-cli 并完成登录（需 mail scope 授权：`lark-cli auth login --scope "mail:user_mailbox.message:send"`）
+>
+> 边界：本 CLI 只承载**发送通道**（raw 正文 → 草稿 → 确认 → 发送 → 日志）。
+> 招聘业务（凭证化推荐 referral、招聘话术模板 referral/training/exam）已迁至
+> 招聘域 [qtrecurit](https://github.com/quanttide/qtrecurit) CLI（issue #1）。
 
 ### 命令一览
 
 ```bash
 # 发送邮件（默认只生成草稿，人工确认后才发）
-qtcloud-connect mail send --to 候选人@example.com --template exam
-qtcloud-connect mail send --to a@x.com,b@y.com --template training --vars name=张三
-qtcloud-connect mail send --to x@example.com --template raw --subject "自定义主题" --body "自定义正文"
+qtcloud-connect mail send --to x@example.com --subject "自定义主题" --body "自定义正文"
+qtcloud-connect mail send --to x@example.com --subject "自定义主题" --body-file body.md
 
 # 确认后直接发送（人工确认过内容后用）
-qtcloud-connect mail send --to x@example.com --template exam --confirm-send
+qtcloud-connect mail send --to x@example.com --subject "主题" --body "正文" --confirm-send
 
-# 模板管理
+# 模板管理（通道侧仅 raw；招聘话术见 qtrecurit）
 qtcloud-connect mail template --list
-qtcloud-connect mail template --name exam
 
 # 发送日志（只记元数据：时间/收件人/主题/状态，不记正文）
 qtcloud-connect mail log --tail 20
-
-# 凭证化人才推荐（凭证号 → 草稿 → 确认 → 发送 → 写台账）
-qtcloud-connect referral send --name 张三 --candidate-email wu@example.com --company 示例企业
-qtcloud-connect referral send --name 张三 --candidate-email wu@example.com --company 示例企业 --confirm-send
 ```
 
 ### 模板
 
-| 模板名 | 用途 | 变量 |
-|--------|------|------|
-| `referral` | 企业内推沟通话术 | 无 |
-| `training` | 实训邀请沟通话术（含群二维码附件需手动加 --attach） | `{{name}}` |
-| `exam` | 招聘考核说明话术 | 无 |
-| `raw` | 自定义正文（需 --subject + --body 或 --body-file） | — |
+| 模板名 | 用途 |
+|--------|------|
+| `raw` | 自定义正文（--subject + --body 或 --body-file），通道侧唯一模板 |
+
+招聘话术模板（`referral` 内推 / `training` 实训邀请 / `exam` 考核说明）已随业务迁至 `qtrecurit mail send --template <name>`。
 
 ### 硬性约束
 
 - **草稿确认制**：默认只生成草稿（隐私邮件禁止全自动直发），人工确认后才 `--confirm-send`
-- **防漏发（车越 bug）**：`referral send` 发送后自动写台账 `data/referral/referrals.csv` + 发送日志
-- **fail-closed**：台账/日志写入失败显式报错，不假装成功
-- **日志隐私**：只记元数据（时间/收件人/主题/凭证号/状态），不记正文
+- **fail-closed**：发送日志写入失败显式报错，不假装成功
+- **日志隐私**：只记元数据（时间/收件人/主题/状态），不记正文
 
 ### 环境变量
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `SEND_LOG_DIR` | `.quanttide/logs` | 发送日志目录 |
-| `REFERRAL_CSV` | `data/referral/referrals.csv` | 推荐台账路径（建议设为 qtrecurit-private 下的绝对路径） |
-| `TRAINING_QR_PATH` | 无 | 实训邀请模板的群二维码图片路径（敏感内容，不放进仓库） |
 

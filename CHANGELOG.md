@@ -5,6 +5,17 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html) 规范。
 
+## [0.0.3] - 2026-08-24
+
+### Added
+
+- CLI: 发送通道抽为独立 crate `qtcloud-connect-send`（`src/send/`，tag `send/v0.1.0`），供招聘域 qtrecurit 复用
+
+### Removed
+
+- CLI: `referral` 子命令迁至招聘域 qtrecurit（凭证化人才推荐业务，issue #1）
+- CLI: 招聘话术模板（referral/training/exam）随业务迁至 qtrecurit，`mail` 仅保留 raw 发送通道
+
 ## [0.0.2] - 2026-05-17
 
 ### Added

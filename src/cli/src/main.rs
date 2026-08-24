@@ -1,14 +1,12 @@
 use clap::{Parser, Subcommand};
-use qtcloud_connect_cli::{mail, notice, referral};
+use qtcloud_connect_cli::{mail, notice};
 
 #[derive(Subcommand)]
 enum Commands {
     /// 发送飞书群通知并 @ 指定成员
     Notice(notice::NoticeArgs),
-    /// 邮件：发送/模板/日志（招聘邮件封装）
+    /// 邮件：发送/模板/日志（发送通道；招聘话术见 qtrecurit CLI）
     Mail(mail::MailArgs),
-    /// 凭证化人才推荐（referral send）
-    Referral(referral::ReferralArgs),
 }
 
 #[derive(Parser)]
@@ -23,7 +21,6 @@ fn main() {
     match &cli.command {
         Some(Commands::Notice(args)) => notice::run(args),
         Some(Commands::Mail(args)) => mail::run(args),
-        Some(Commands::Referral(args)) => referral::run(args),
         None => {}
     }
 }

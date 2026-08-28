@@ -1,19 +1,19 @@
-package api
+package handler
 
 import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/quanttide/qtcloud-connect/provider/storage"
+	"github.com/quanttide/qtcloud-connect/provider/internal/store"
 )
 
 // MessageHandler 是消息 API 处理器。
 type MessageHandler struct {
-	storage *storage.Storage
+	storage *store.Storage
 }
 
 // NewMessageHandler 创建新的消息处理器。
-func NewMessageHandler(s *storage.Storage) *MessageHandler {
+func NewMessageHandler(s *store.Storage) *MessageHandler {
 	return &MessageHandler{storage: s}
 }
 

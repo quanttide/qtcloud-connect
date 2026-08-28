@@ -1,19 +1,19 @@
-package api
+package handler
 
 import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/quanttide/qtcloud-connect/provider/storage"
+	"github.com/quanttide/qtcloud-connect/provider/internal/store"
 )
 
 // ConsensusHandler 是共识 API 处理器。
 type ConsensusHandler struct {
-	storage *storage.Storage
+	storage *store.Storage
 }
 
 // NewConsensusHandler 创建新的共识处理器。
-func NewConsensusHandler(s *storage.Storage) *ConsensusHandler {
+func NewConsensusHandler(s *store.Storage) *ConsensusHandler {
 	return &ConsensusHandler{storage: s}
 }
 

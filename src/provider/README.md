@@ -2,6 +2,28 @@
 
 量潮沟通云 — 人机沟通共识引擎 API (Go 实现)
 
+## 项目结构
+
+```
+provider/
+├── cmd/
+│   └── server/         # 主服务器
+│       └── main.go
+├── internal/
+│   ├── domain/         # 领域模型
+│   │   └── models.go
+│   ├── handler/        # HTTP 处理器
+│   │   ├── router.go
+│   │   ├── messages.go
+│   │   └── consensuses.go
+│   └── store/          # 存储层
+│       └── storage.go
+├── data/               # 数据目录
+├── go.mod
+├── go.sum
+└── README.md
+```
+
 ## 运行
 
 ```bash
@@ -10,7 +32,7 @@ export DB_PATH=data/qtcloud-connect.db
 export PORT=8000
 
 # 运行
-go run main.go
+go run cmd/server/main.go
 ```
 
 ## API
@@ -41,5 +63,5 @@ go run main.go
 go test ./...
 
 # 构建
-go build -o qtcloud-connect-provider main.go
+go build -o qtcloud-connect-provider cmd/server/main.go
 ```

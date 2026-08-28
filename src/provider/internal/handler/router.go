@@ -1,13 +1,13 @@
-package api
+package handler
 
 import (
 	"net/http"
 
-	"github.com/quanttide/qtcloud-connect/provider/storage"
+	"github.com/quanttide/qtcloud-connect/provider/internal/store"
 )
 
 // NewRouter 创建新的路由器。
-func NewRouter(s *storage.Storage) *http.ServeMux {
+func NewRouter(s *store.Storage) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// 创建处理器

@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/quanttide/qtcloud-connect/provider/api"
-	"github.com/quanttide/qtcloud-connect/provider/storage"
+	"github.com/quanttide/qtcloud-connect/provider/internal/handler"
+	"github.com/quanttide/qtcloud-connect/provider/internal/store"
 )
 
 func main() {
@@ -17,14 +17,14 @@ func main() {
 	}
 
 	// 初始化存储
-	store, err := storage.New(dbPath)
+	store, err := store.New(dbPath)
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
 	defer store.Close()
 
 	// 创建路由器
-	router := api.NewRouter(store)
+	router := handler.NewRouter(store)
 
 	// 获取端口
 	port := os.Getenv("PORT")

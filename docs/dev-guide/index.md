@@ -97,7 +97,6 @@ qtcloud-connect/
 │   │   └── pyproject.toml # Python 依赖配置
 │   ├── cli/               # Rust 命令行工具
 │   │   ├── src/           # 源代码
-│   │   ├── examples/      # 示例代码
 │   │   └── Cargo.toml     # Rust 依赖配置
 │   └── studio/            # Flutter 前端工作台
 │       ├── lib/           # Dart 代码
@@ -105,6 +104,8 @@ qtcloud-connect/
 │       └── pubspec.yaml   # Flutter 依赖配置
 ├── docs/                  # 项目文档
 ├── examples/              # 示例项目
+│   ├── cli/               # CLI 示例代码
+│   └── connect-api/       # Connect API 示例
 └── tests/                 # 集成测试
 ```
 

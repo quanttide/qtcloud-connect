@@ -28,7 +28,7 @@ go run main.go
 
 ### 健康检查
 
-- `GET /health` - 健康检查
+- `GET /healthz` - 健康检查
 
 ## 数据库
 

@@ -24,7 +24,7 @@ func NewRouter(s *storage.Storage) *http.ServeMux {
 	mux.HandleFunc("POST /api/consensuses/deprecate", consensusHandler.DeprecateConsensus)
 
 	// 健康检查
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status": "ok"}`))
 	})

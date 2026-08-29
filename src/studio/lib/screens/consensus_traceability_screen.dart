@@ -29,6 +29,9 @@ class _ConsensusTraceabilityScreenState
     extends State<ConsensusTraceabilityScreen> {
   late Future<ConsensusGraph> _graphFuture;
   ConsensusGraph? _graph;
+  List<ConsensusGraph> _graphs = const [];
+  String? _selectedGraphId;
+  int _graphRequestVersion = 0;
   String? _selectedId;
   Object? _error;
   bool _isSaving = false;
@@ -85,7 +88,12 @@ class _ConsensusTraceabilityScreenState
                     isSaving: _isSaving,
                     nodePositions: _nodePositions,
                     canAddExistingConsensus: !_isLocal,
+                    graphs: _graphs,
+                    selectedGraphId: _selectedGraphId,
+                    canManageGraphs: !_isLocal,
                     onRefresh: _refresh,
+                    onSelectGraph: _selectGraph,
+                    onCreateGraph: _createGraph,
                     onSelect: (id) => setState(() => _selectedId = id),
                     onMoveNode: _setNodePosition,
                     onAddConsensus: _addConsensus,
@@ -113,14 +121,22 @@ class _ConsensusTraceabilityScreenState
     }
 
     final graphs = await widget.apiClient.listGraphs();
+    _graphs = graphs;
     if (graphs.isNotEmpty) {
-      return widget.apiClient.getGraph(graphs.first.id);
+      final selected = graphs
+          .where((graph) => graph.id == _selectedGraphId)
+          .firstOrNull;
+      final graph = selected ?? graphs.first;
+      _selectedGraphId = graph.id;
+      return widget.apiClient.getGraph(graph.id);
     }
 
     final graph = await widget.apiClient.createGraph(
       name: '共识追溯图',
       description: '团队共识的可编辑决策网络。',
     );
+    _graphs = [graph];
+    _selectedGraphId = graph.id;
     final consensuses = await widget.apiClient.listConsensuses();
     var current = graph;
     for (final consensus in consensuses) {
@@ -130,6 +146,66 @@ class _ConsensusTraceabilityScreenState
       );
     }
     return current;
+  }
+
+  Future<void> _createGraph() async {
+    if (_isLocal || _isSaving) {
+      return;
+    }
+    final draft = await _showGraphDialog(context);
+    if (draft == null) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
+    try {
+      final graph = await widget.apiClient.createGraph(
+        name: draft.name,
+        description: draft.description,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _graphs = [..._graphs, graph];
+        _selectedGraphId = graph.id;
+        _graphRequestVersion++;
+        _selectedId = null;
+        _graph = graph;
+        _graphFuture = Future.value(graph);
+        _nodePositions.clear();
+        _isSaving = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSaving = false;
+        _error = error;
+      });
+      _showMessage(_formatError(error));
+    }
+  }
+
+  void _selectGraph(String graphId) {
+    if (_isLocal || _isSaving || graphId == _selectedGraphId) {
+      return;
+    }
+    final future = widget.apiClient.getGraph(graphId);
+    setState(() {
+      _selectedGraphId = graphId;
+      _graphRequestVersion++;
+      _selectedId = null;
+      _graph = null;
+      _error = null;
+      _nodePositions.clear();
+      _graphFuture = future;
+      _cacheLoadedGraph(future);
+    });
   }
 
   ConsensusGraph _localGraph({
@@ -149,9 +225,10 @@ class _ConsensusTraceabilityScreenState
   }
 
   void _cacheLoadedGraph(Future<ConsensusGraph> future) {
+    final requestVersion = _graphRequestVersion;
     future
         .then<void>((graph) {
-          if (mounted && _graph == null) {
+          if (mounted && requestVersion == _graphRequestVersion) {
             setState(() => _graph = graph);
           }
         })
@@ -385,8 +462,10 @@ class _ConsensusTraceabilityScreenState
         return;
       }
       setState(() {
-        _graph = graph;
         _isSaving = false;
+        if (_isLocal || graph.id == _selectedGraphId) {
+          _graph = graph;
+        }
       });
     } catch (error) {
       if (!mounted) {
@@ -466,11 +545,15 @@ class _ConsensusTraceabilityScreenState
   }
 
   void _refresh() {
+    if (_isSaving) {
+      return;
+    }
     setState(() {
       _graph = null;
       _selectedId = null;
       _error = null;
       _nodePositions.clear();
+      _graphRequestVersion++;
       _graphFuture = _loadInitialGraph();
       _cacheLoadedGraph(_graphFuture);
     });
@@ -526,7 +609,12 @@ class _ConsensusSurface extends StatelessWidget {
     required this.isSaving,
     required this.nodePositions,
     required this.canAddExistingConsensus,
+    required this.graphs,
+    required this.selectedGraphId,
+    required this.canManageGraphs,
     required this.onRefresh,
+    required this.onSelectGraph,
+    required this.onCreateGraph,
     required this.onSelect,
     required this.onMoveNode,
     required this.onAddConsensus,
@@ -544,7 +632,12 @@ class _ConsensusSurface extends StatelessWidget {
   final bool isSaving;
   final Map<String, Offset> nodePositions;
   final bool canAddExistingConsensus;
+  final List<ConsensusGraph> graphs;
+  final String? selectedGraphId;
+  final bool canManageGraphs;
   final VoidCallback onRefresh;
+  final ValueChanged<String> onSelectGraph;
+  final VoidCallback onCreateGraph;
   final ValueChanged<String> onSelect;
   final void Function(String id, Offset position) onMoveNode;
   final VoidCallback onAddConsensus;
@@ -567,7 +660,12 @@ class _ConsensusSurface extends StatelessWidget {
           isSaving: isSaving,
           nodePositions: nodePositions,
           canAddExistingConsensus: canAddExistingConsensus,
+          graphs: graphs,
+          selectedGraphId: selectedGraphId,
+          canManageGraphs: canManageGraphs,
           onRefresh: onRefresh,
+          onSelectGraph: onSelectGraph,
+          onCreateGraph: onCreateGraph,
           onSelect: onSelect,
           onMoveNode: onMoveNode,
           onAddConsensus: onAddConsensus,
@@ -613,7 +711,12 @@ class _GraphPanel extends StatelessWidget {
     required this.isSaving,
     required this.nodePositions,
     required this.canAddExistingConsensus,
+    required this.graphs,
+    required this.selectedGraphId,
+    required this.canManageGraphs,
     required this.onRefresh,
+    required this.onSelectGraph,
+    required this.onCreateGraph,
     required this.onSelect,
     required this.onMoveNode,
     required this.onAddConsensus,
@@ -629,7 +732,12 @@ class _GraphPanel extends StatelessWidget {
   final bool isSaving;
   final Map<String, Offset> nodePositions;
   final bool canAddExistingConsensus;
+  final List<ConsensusGraph> graphs;
+  final String? selectedGraphId;
+  final bool canManageGraphs;
   final VoidCallback onRefresh;
+  final ValueChanged<String> onSelectGraph;
+  final VoidCallback onCreateGraph;
   final ValueChanged<String> onSelect;
   final void Function(String id, Offset position) onMoveNode;
   final VoidCallback onAddConsensus;
@@ -678,9 +786,42 @@ class _GraphPanel extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 ),
+              PopupMenuButton<String>(
+                tooltip: '切换图谱',
+                enabled: canManageGraphs && graphs.length > 1 && !isSaving,
+                icon: const Icon(Icons.swap_horiz),
+                onSelected: isSaving ? null : onSelectGraph,
+                itemBuilder: (context) => [
+                  for (final item in graphs)
+                    PopupMenuItem(
+                      value: item.id,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (item.id == selectedGraphId)
+                            Icon(
+                              Icons.check,
+                              size: 18,
+                              color: theme.colorScheme.primary,
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              IconButton(
+                tooltip: '新建图谱',
+                onPressed: canManageGraphs && !isSaving ? onCreateGraph : null,
+                icon: const Icon(Icons.addchart_outlined),
+              ),
               IconButton(
                 tooltip: '刷新',
-                onPressed: onRefresh,
+                onPressed: isSaving ? null : onRefresh,
                 icon: const Icon(Icons.refresh),
               ),
               IconButton(
@@ -1252,6 +1393,13 @@ class _ConsensusDraft {
   final String description;
 }
 
+class _GraphDraft {
+  const _GraphDraft({required this.name, required this.description});
+
+  final String name;
+  final String description;
+}
+
 class _RelationDraft {
   const _RelationDraft({
     required this.from,
@@ -1262,6 +1410,73 @@ class _RelationDraft {
   final String from;
   final String to;
   final String relationType;
+}
+
+Future<_GraphDraft?> _showGraphDialog(BuildContext context) async {
+  final nameController = TextEditingController();
+  final descriptionController = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+  final result = await showDialog<_GraphDraft>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('新建图谱'),
+      content: Form(
+        key: formKey,
+        child: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: '图谱名称',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) =>
+                    value == null || value.trim().isEmpty ? '请输入图谱名称' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: descriptionController,
+                minLines: 3,
+                maxLines: 6,
+                decoration: const InputDecoration(
+                  labelText: '说明',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (!formKey.currentState!.validate()) {
+              return;
+            }
+            Navigator.pop(
+              context,
+              _GraphDraft(
+                name: nameController.text.trim(),
+                description: descriptionController.text.trim(),
+              ),
+            );
+          },
+          child: const Text('创建'),
+        ),
+      ],
+    ),
+  );
+  nameController.dispose();
+  descriptionController.dispose();
+  return result;
 }
 
 Future<_ConsensusDraft?> _showConsensusDialog(

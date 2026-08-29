@@ -65,7 +65,7 @@ qtcloud-connect consensus deprecate <consensus-id>
 
 ### 共识图编辑
 
-Studio 首次连接到没有图谱的 Provider 时，会创建一个“共识追溯图”，并把已有共识纳入其中。之后的编辑都通过 Provider 持久化：
+Studio 首次连接到没有图谱的 Provider 时，会创建一个“共识追溯图”，并把已有共识纳入其中。Studio 顶部的图谱切换按钮可在多张任务图之间切换，新建图谱会独立保存，不会覆盖当前图。之后的编辑都通过 Provider 持久化：
 
 - `POST /api/consensus-graphs`、`GET /api/consensus-graphs`、`GET /api/consensus-graphs/{id}`
 - `POST /api/consensus-graphs/{id}/nodes`、`DELETE /api/consensus-graphs/{id}/nodes/{consensus_id}`

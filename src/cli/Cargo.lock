@@ -526,7 +526,7 @@ dependencies = [
 
 [[package]]
 name = "qtcloud-connect-cli"
-version = "0.1.0-alpha.2"
+version = "0.1.0-rc.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -536,6 +536,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "ureq",
 ]
 
 [[package]]

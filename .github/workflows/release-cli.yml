@@ -29,7 +29,7 @@ jobs:
           ./scripts/validate-changelog.sh "${VERSION#v}"
 
   build-binaries:
-    needs: check
+    needs: quality-gates
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -60,12 +60,32 @@ jobs:
           name: qtcloud-connect-${{ matrix.target }}
           path: ${{ github.workspace }}/src/cli/target/${{ matrix.target }}/release/qtcloud-connect${{ matrix.ext }}
 
+  quality-gates:
+    needs: check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/cli
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt, clippy
+      - name: format
+        run: cargo fmt --check
+      - name: test
+        run: cargo test --locked
+      - name: clippy
+        run: cargo clippy --locked -- -A warnings
+      - name: publish dry run
+        run: cargo publish --dry-run --locked --registry crates-io
+
   publish-crate:
-    needs: [build-binaries]
+    needs: [quality-gates, build-binaries]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: publish to crates.io
         working-directory: src/cli
-        run: cargo publish --allow-dirty --token ${{ secrets.CRATES_API_TOKEN }}
+        run: cargo publish --locked --registry crates-io --token ${{ secrets.CRATES_API_TOKEN }}

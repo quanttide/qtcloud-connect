@@ -1,16 +1,23 @@
-# qtcloud_connect
+# qtcloud-connect Studio
 
-A new Flutter project.
+Flutter 工作台，当前默认入口是共识追溯页面。
 
-## Getting Started
+共识追溯页面不是固定示例图，而是从 Provider 加载 `ConsensusGraph`。顶部图谱切换按钮可在多张任务图之间切换，新建图谱会独立保存；工具栏可添加和编辑共识、纳入已有共识、建立自定义类型关联。画布支持缩放、平移和节点拖动，右侧面板展示节点详情以及入边/出边。
 
-This project is a starting point for a Flutter application.
+## 本地开发
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+flutter pub get
+flutter run -d chrome --dart-define=CONNECT_PROVIDER_ENDPOINT=http://localhost:8000/api
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+`CONNECT_PROVIDER_ENDPOINT` 默认值为 `http://localhost:8000/api`。生产环境部署到
+`https://studio.connect.cloud.quanttide.com` 时，需要确保 Provider 的 CORS 白名单包含该来源。Studio 是静态 Web 产物，不能将 `CONNECT_AUTH_TOKEN` 编入浏览器；公网用户级认证和 Provider 服务令牌应由网关或反向代理处理。
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 验证
+
+```bash
+flutter analyze
+flutter test
+flutter build web --release --base-href /
+```

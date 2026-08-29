@@ -1,0 +1,65 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  provider:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/provider
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: src/provider/go.mod
+      - name: test
+        run: go test ./...
+      - name: vet
+        run: go vet ./...
+      - name: build
+        run: go build ./cmd/server
+
+  cli:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/cli
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt, clippy
+      - name: format
+        run: cargo fmt --check
+      - name: test
+        run: cargo test --locked
+      - name: clippy
+        run: cargo clippy --locked -- -A warnings
+
+  studio:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/studio
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: dependencies
+        run: flutter pub get
+      - name: analyze
+        run: flutter analyze
+      - name: test
+        run: flutter test
+      - name: build web
+        run: flutter build web --release --base-href /

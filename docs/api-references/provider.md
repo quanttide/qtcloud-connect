@@ -1,655 +1,229 @@
-# Provider API 参考文档
+# Provider API 参考
 
-本文档详细描述 qtcloud-connect FastAPI 后端服务的 API 接口。
+当前 Provider 是 Go + SQLite 实现，默认监听 `http://localhost:8000`，API 前缀为 `/api`。
 
-## 基础信息
+## 运行
 
-- **基础 URL**：`http://localhost:8000/api/v1`
-- **认证方式**：Bearer Token (JWT)
-- **数据格式**：JSON
-- **字符编码**：UTF-8
-- **API 版本**：v1
-
-## 认证授权
-
-### JWT Token
-- **获取方式**：通过 `/auth/login` 端点获取
-- **有效期**：24 小时
-- **刷新**：通过 `/auth/refresh` 端点刷新
-
-### 请求头格式
+```bash
+cd src/provider
+go run cmd/server/main.go
 ```
-Authorization: Bearer <token>
+
+环境变量：
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `DB_PATH` | `data/qtcloud-connect.db` | SQLite 数据库路径，首次启动会自动创建父目录 |
+| `PORT` | `8000` | HTTP 服务端口 |
+| `CONNECT_ALLOWED_ORIGINS` | 空 | 逗号分隔 CORS 白名单；为空时允许目标 Studio 域名和本地开发端口 |
+| `CONNECT_AUTH_TOKEN` | 空 | 可选 Bearer token；配置后所有 `/api` 请求都必须带 `Authorization: Bearer <token>` |
+
+## 共识 API
+
+### 创建共识
+
+```http
+POST /api/consensuses
 Content-Type: application/json
 ```
 
-## 主要端点
-
-### 对话管理
-
-#### 获取对话列表
-```
-GET /conversations
-```
-
-**查询参数**：
-- `page`：页码（默认：1）
-- `per_page`：每页数量（默认：20）
-- `search`：搜索关键词
-- `type`：对话类型（group/private）
-
-**响应示例**：
 ```json
 {
-  "code": 200,
-  "message": "success",
-  "data": {
-    "items": [
-      {
-        "id": 1,
-        "title": "项目讨论",
-        "type": "group",
-        "participants": ["user1", "user2"],
-        "created_at": "2026-08-28T10:00:00Z"
-      }
-    ],
-    "total": 100,
-    "page": 1,
-    "per_page": 20
-  }
+  "title": "Studio 优先上线共识页面",
+  "description": "v0.1 先打通 CLI 写入、Provider 持久化、Studio 展示。"
 }
 ```
 
-#### 创建新对话
-```
-POST /conversations
-```
+响应状态码：`201 Created`。
 
-**请求体**：
 ```json
 {
-  "title": "项目讨论",
-  "participants": ["user1", "user2"],
-  "type": "group"
+  "id": "7d7a20cfd7d3446eaf4b9c531f9e3c18",
+  "title": "Studio 优先上线共识页面",
+  "description": "v0.1 先打通 CLI 写入、Provider 持久化、Studio 展示。",
+  "status": "proposed",
+  "created_at": "2026-08-29T04:00:00Z",
+  "updated_at": "2026-08-29T04:00:00Z"
 }
 ```
 
-**响应示例**：
+### 列出共识
+
+```http
+GET /api/consensuses?page=1&page_size=20
+```
+
+`page_size` 默认值为 20，最大值为 100；超过最大值时按 100 处理。
+
 ```json
 {
-  "code": 201,
-  "message": "创建成功",
-  "data": {
-    "id": 1,
-    "title": "项目讨论",
-    "type": "group",
-    "participants": ["user1", "user2"],
-    "created_at": "2026-08-28T10:00:00Z"
-  }
+  "items": [],
+  "total": 0,
+  "page": 1,
+  "page_size": 20
 }
 ```
 
-#### 获取对话详情
-```
-GET /conversations/{id}
+### 获取共识详情
+
+```http
+GET /api/consensuses/{id}
 ```
 
-**路径参数**：
-- `id`：对话 ID
+找不到记录时返回 `404` 和 `{ "error": "not found" }`。
 
-**响应示例**：
+### 更新共识
+
+```http
+PUT /api/consensuses/{id}
+Content-Type: application/json
+```
+
 ```json
 {
-  "code": 200,
-  "message": "success",
-  "data": {
-    "id": 1,
-    "title": "项目讨论",
-    "type": "group",
-    "participants": ["user1", "user2"],
-    "messages_count": 25,
-    "created_at": "2026-08-28T10:00:00Z",
-    "updated_at": "2026-08-28T12:00:00Z"
-  }
+  "title": "更新后的标题",
+  "description": "更新后的描述"
 }
 ```
 
-#### 更新对话信息
-```
-PUT /conversations/{id}
+已确认或已废弃的共识不能再编辑标题和描述，更新时返回 `409 Conflict`。
+
+### 确认共识
+
+```http
+POST /api/consensuses/confirm
+Content-Type: application/json
 ```
 
-**路径参数**：
-- `id`：对话 ID
+```json
+{ "consensus_id": "7d7a20cfd7d3446eaf4b9c531f9e3c18" }
+```
 
-**请求体**：
+### 废弃共识
+
+```http
+POST /api/consensuses/deprecate
+Content-Type: application/json
+```
+
+```json
+{ "consensus_id": "7d7a20cfd7d3446eaf4b9c531f9e3c18" }
+```
+
+## 共识图 API
+
+共识图是 DAG，用来保存共识之间的可扩展链路。关系类型是字符串，可使用“前置条件”“支持”“反对”“补充”或团队自定义语义。
+
+```http
+POST /api/consensus-graphs
+GET /api/consensus-graphs
+GET /api/consensus-graphs/{id}
+PUT /api/consensus-graphs/{id}
+POST /api/consensus-graphs/{id}/nodes
+DELETE /api/consensus-graphs/{id}/nodes/{consensus_id}
+PUT /api/consensus-graphs/{id}/nodes/{consensus_id}/position
+POST /api/consensus-graphs/{id}/relations
+POST /api/consensus-graphs/{id}/edges
+DELETE /api/consensus-graphs/{id}/edges/{relation_id}
+```
+
+`POST /api/consensus-graphs/{id}/relations` 会原子创建关系并加入图；如果会形成环，返回 `409 Conflict` 且不会写入孤立关系。
+
+### 更新共识图节点位置
+
+节点位置属于具体共识图的展示布局数据，不会修改共识本身。Studio 在节点拖动结束后调用此接口保存位置。
+
+```http
+PUT /api/consensus-graphs/{id}/nodes/{consensus_id}/position
+Content-Type: application/json
+```
+
+请求体：
+
 ```json
 {
-  "title": "新标题",
-  "participants": ["user1", "user2", "user3"]
+  "x": 420,
+  "y": 430
 }
 ```
 
-#### 删除对话
-```
-DELETE /conversations/{id}
-```
+响应为更新后的完整共识图：
 
-**路径参数**：
-- `id`：对话 ID
-
-**响应示例**：
 ```json
 {
-  "code": 200,
-  "message": "删除成功"
-}
-```
-
-### 消息管理
-
-#### 获取对话消息列表
-```
-GET /conversations/{id}/messages
-```
-
-**路径参数**：
-- `id`：对话 ID
-
-**查询参数**：
-- `page`：页码（默认：1）
-- `per_page`：每页数量（默认：50）
-- `before`：获取此时间之前的消息
-- `after`：获取此时间之后的消息
-
-**响应示例**：
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "items": [
-      {
-        "id": 1,
-        "content": "你好，这是测试消息",
-        "type": "text",
-        "sender": "user1",
-        "created_at": "2026-08-28T10:00:00Z"
-      }
-    ],
-    "total": 100,
-    "page": 1,
-    "per_page": 50
-  }
-}
-```
-
-#### 发送新消息
-```
-POST /conversations/{id}/messages
-```
-
-**路径参数**：
-- `id`：对话 ID
-
-**请求体**：
-```json
-{
-  "content": "你好，这是测试消息",
-  "type": "text",
-  "attachments": []
-}
-```
-
-**响应示例**：
-```json
-{
-  "code": 201,
-  "message": "发送成功",
-  "data": {
-    "id": 1,
-    "content": "你好，这是测试消息",
-    "type": "text",
-    "sender": "user1",
-    "created_at": "2026-08-28T10:00:00Z"
-  }
-}
-```
-
-#### 获取消息详情
-```
-GET /messages/{id}
-```
-
-**路径参数**：
-- `id`：消息 ID
-
-#### 更新消息
-```
-PUT /messages/{id}
-```
-
-**路径参数**：
-- `id`：消息 ID
-
-**请求体**：
-```json
-{
-  "content": "更新后的消息内容"
-}
-```
-
-#### 删除消息
-```
-DELETE /messages/{id}
-```
-
-**路径参数**：
-- `id`：消息 ID
-
-### 联系人管理
-
-#### 获取联系人列表
-```
-GET /contacts
-```
-
-**查询参数**：
-- `page`：页码（默认：1）
-- `per_page`：每页数量（默认：20）
-- `search`：搜索关键词
-- `group`：联系人分组
-
-**响应示例**：
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "items": [
-      {
-        "id": 1,
-        "name": "张三",
-        "email": "zhangsan@example.com",
-        "phone": "13800138000",
-        "group": "同事",
-        "created_at": "2026-08-28T10:00:00Z"
-      }
-    ],
-    "total": 50,
-    "page": 1,
-    "per_page": 20
-  }
-}
-```
-
-#### 创建新联系人
-```
-POST /contacts
-```
-
-**请求体**：
-```json
-{
-  "name": "张三",
-  "email": "zhangsan@example.com",
-  "phone": "13800138000",
-  "group": "同事"
-}
-```
-
-#### 获取联系人详情
-```
-GET /contacts/{id}
-```
-
-**路径参数**：
-- `id`：联系人 ID
-
-#### 更新联系人信息
-```
-PUT /contacts/{id}
-```
-
-**路径参数**：
-- `id`：联系人 ID
-
-**请求体**：
-```json
-{
-  "name": "李四",
-  "email": "lisi@example.com",
-  "phone": "13900139000",
-  "group": "朋友"
-}
-```
-
-#### 删除联系人
-```
-DELETE /contacts/{id}
-```
-
-**路径参数**：
-- `id`：联系人 ID
-
-### 白板管理
-
-#### 获取白板列表
-```
-GET /whiteboards
-```
-
-**查询参数**：
-- `page`：页码（默认：1）
-- `per_page`：每页数量（默认：20）
-- `search`：搜索关键词
-
-**响应示例**：
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "items": [
-      {
-        "id": 1,
-        "title": "项目规划白板",
-        "content": {},
-        "owner": "user1",
-        "created_at": "2026-08-28T10:00:00Z"
-      }
-    ],
-    "total": 30,
-    "page": 1,
-    "per_page": 20
-  }
-}
-```
-
-#### 创建新白板
-```
-POST /whiteboards
-```
-
-**请求体**：
-```json
-{
-  "title": "项目规划白板",
-  "content": {}
-}
-```
-
-#### 获取白板详情
-```
-GET /whiteboards/{id}
-```
-
-**路径参数**：
-- `id`：白板 ID
-
-#### 更新白板内容
-```
-PUT /whiteboards/{id}
-```
-
-**路径参数**：
-- `id`：白板 ID
-
-**请求体**：
-```json
-{
-  "title": "新标题",
-  "content": {
-    "nodes": [],
-    "edges": []
-  }
-}
-```
-
-#### 删除白板
-```
-DELETE /whiteboards/{id}
-```
-
-**路径参数**：
-- `id`：白板 ID
-
-### 数据分析
-
-#### 对话统计分析
-```
-GET /analytics/conversations
-```
-
-**查询参数**：
-- `start_date`：开始日期
-- `end_date`：结束日期
-- `group_by`：分组方式（day/week/month）
-
-**响应示例**：
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "total_conversations": 1000,
-    "active_conversations": 150,
-    "average_messages_per_conversation": 25,
-    "daily_stats": [
-      {
-        "date": "2026-08-28",
-        "count": 50
-      }
-    ]
-  }
-}
-```
-
-#### 消息统计分析
-```
-GET /analytics/messages
-```
-
-**查询参数**：
-- `start_date`：开始日期
-- `end_date`：结束日期
-- `group_by`：分组方式（day/week/month）
-- `type`：消息类型（text/image/file）
-
-#### 用户活跃度分析
-```
-GET /analytics/users
-```
-
-**查询参数**：
-- `start_date`：开始日期
-- `end_date`：结束日期
-- `user_id`：用户 ID（可选）
-
-#### 报表生成
-```
-GET /analytics/reports
-```
-
-**查询参数**：
-- `type`：报表类型（daily/weekly/monthly）
-- `format`：输出格式（json/csv/pdf）
-
-## 错误处理
-
-### HTTP 状态码
-- `200`：成功
-- `201`：创建成功
-- `400`：请求参数错误
-- `401`：未授权
-- `403`：禁止访问
-- `404`：资源不存在
-- `429`：请求过于频繁
-- `500`：服务器内部错误
-
-### 错误响应格式
-```json
-{
-  "code": 400,
-  "message": "错误描述",
-  "details": "详细错误信息",
-  "timestamp": "2026-08-28T10:00:00Z"
-}
-```
-
-### 常见错误
-
-#### 400 Bad Request
-```json
-{
-  "code": 400,
-  "message": "请求参数错误",
-  "errors": [
-    {
-      "field": "title",
-      "message": "标题不能为空"
+  "id": "graph-id",
+  "name": "共识追溯图",
+  "description": "团队共识的可编辑决策网络。",
+  "nodes": [],
+  "edges": [],
+  "node_positions": {
+    "consensus-id": {
+      "x": 420,
+      "y": 430
     }
-  ]
+  },
+  "created_at": "2026-08-29T10:00:00Z",
+  "updated_at": "2026-08-29T10:05:00Z"
 }
 ```
 
-#### 401 Unauthorized
+约束：
+
+- `x` 和 `y` 必须同时提供，并且必须是有限数字。
+- 坐标绝对值不能超过 `100000`。
+- 单次请求体最大为 `1024` 字节。
+- 位置按 `graph_id + consensus_id` 独立保存；切换图谱不会复用其他图的位置。
+- 更新位置会更新共识图的 `updated_at`，不会更新共识节点的 `updated_at`。
+
+错误响应：
+
+| 状态码 | 场景 |
+|--------|------|
+| `400 Bad Request` | 请求体格式错误、缺少坐标、坐标非法或请求体超限 |
+| `404 Not Found` | 共识图或指定节点不存在 |
+
+全局关系接口仍可用于复用或管理关系：
+
+```http
+POST /api/consensus-relations
+GET /api/consensus-relations/{id}
+DELETE /api/consensus-relations/{id}
+GET /api/consensuses/{id}/relations?direction=incoming|outgoing|all
+```
+
+## 消息 API
+
+当前消息接口是只读基础接口：
+
+```http
+GET /api/messages
+GET /api/messages/{id}
+```
+
+## 健康检查
+
+```http
+GET /healthz
+```
+
+响应：
+
 ```json
-{
-  "code": 401,
-  "message": "未授权，请先登录"
-}
+{ "status": "ok" }
 ```
 
-#### 403 Forbidden
-```json
-{
-  "code": 403,
-  "message": "权限不足，无法访问该资源"
-}
-```
+## 浏览器访问
 
-#### 404 Not Found
-```json
-{
-  "code": 404,
-  "message": "资源不存在"
-}
-```
+默认 CORS 白名单：
 
-#### 429 Too Many Requests
-```json
-{
-  "code": 429,
-  "message": "请求过于频繁，请稍后再试",
-  "retry_after": 60
-}
-```
+- `https://studio.connect.cloud.quanttide.com`
+- `http://localhost:*`
+- `http://127.0.0.1:*`
 
-## 限流策略
+生产部署如果改用其他 Studio 域名，需要设置 `CONNECT_ALLOWED_ORIGINS`，例如：
 
-### 请求限制
-- **匿名用户**：100 次/小时
-- **普通用户**：1000 次/小时
-- **管理员**：10000 次/小时
-
-### 限流响应
-```json
-{
-  "code": 429,
-  "message": "请求过于频繁，请稍后再试",
-  "retry_after": 60
-}
-```
-
-## 版本控制
-
-### API 版本
-- **当前版本**：v1
-- **版本策略**：URL 路径版本控制
-- **弃用策略**：提前 6 个月通知
-
-### 版本迁移
-- 新版本发布后，旧版本保留 6 个月
-- 提供迁移指南和工具
-- 监控 API 使用情况
-
-## 监控和日志
-
-### 监控指标
-- 请求响应时间
-- 错误率
-- 吞吐量
-- 资源使用率
-
-### 日志格式
-```json
-{
-  "timestamp": "2026-08-28T10:00:00Z",
-  "level": "INFO",
-  "message": "API 请求",
-  "method": "POST",
-  "path": "/api/v1/conversations",
-  "status": 200,
-  "duration": 150,
-  "user_id": "user123"
-}
-```
-
-## 测试和调试
-
-### 测试工具
-- **Postman**：API 测试和文档
-- **Swagger UI**：交互式 API 文档（访问 `/docs`）
-- **curl**：命令行测试
-
-### 调试技巧
-1. 使用 `--verbose` 参数查看详细请求
-2. 检查请求头和响应头
-3. 验证 JSON 格式和编码
-4. 查看服务器日志
-
-### 示例请求
-
-#### 使用 curl 测试
 ```bash
-# 获取 Token
-curl -X POST http://localhost:8000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "password"}'
-
-# 使用 Token 获取对话列表
-curl -X GET http://localhost:8000/api/v1/conversations \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json"
+CONNECT_ALLOWED_ORIGINS=https://studio.connect.cloud.quanttide.com,https://preview.example.com
 ```
 
-## 常见问题
-
-### Q: 如何获取 API Token？
-A: 通过 `/auth/login` 端点，使用用户名和密码获取 JWT Token。
-
-### Q: API 请求频率有限制吗？
-A: 是的，不同角色有不同的请求限制，详见限流策略部分。
-
-### Q: 如何处理分页？
-A: 使用 `page` 和 `per_page` 参数进行分页，响应中包含分页信息。
-
-### Q: 支持哪些数据格式？
-A: 目前只支持 JSON 格式，请求和响应都使用 UTF-8 编码。
-
-### Q: 如何处理批量操作？
-A: 对于批量操作，建议使用批量 API 端点（如果提供）或循环调用单个 API。
-
-## 更新日志
-
-### v1.0.0 (2026-08-28)
-- 初始版本发布
-- 支持对话、消息、联系人、白板管理
-- 实现 JWT 认证
-- 提供完整的 API 文档
-
-### v1.1.0 (计划中)
-- 添加数据分析 API
-- 实现 WebSocket 实时通信
-- 优化分页和搜索功能
+不在白名单中的带 `Origin` 预检请求返回 `403`。`CONNECT_AUTH_TOKEN` 只提供服务级 Bearer 校验；公网部署仍必须放在用户级认证、HTTPS、限流网关之后。

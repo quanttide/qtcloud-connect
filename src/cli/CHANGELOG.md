@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## [0.1.0-rc.1] - 2026-08-29
+
+### Added
+
+- 共识 CLI：创建、列表、详情、更新、确认和废弃共识记录。
+- Provider HTTP 客户端联调，支持通过 `--endpoint` 指定服务地址。
+
+### Changed
+
+- 发布前增加 `cargo fmt`、`cargo test`、`cargo clippy` 和 `cargo publish --dry-run` 门禁。
+
+## [Unreleased]
+
+### Added
+
+- `consensus` 子命令：支持创建、列表、详情、更新、确认和废弃共识记录。
+
+### Changed
+
+- CLI 可直接调用 Go Provider 的 `/api/consensuses`，用于手动记录团队真实共识进展。
+
 ## [0.1.0-alpha.2] - 2026-08-24
 
 ### Added

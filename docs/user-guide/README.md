@@ -1,73 +1,37 @@
 # 用户指南
 
-本目录包含 qtcloud-connect 的用户文档，帮助用户了解和使用系统功能。
+v0.1 的用户目标是把团队共识记录下来，并在 Studio 里查看共识追溯页面。
 
-## 文档结构
+## 当前可用能力
 
-| 文档 | 说明 |
-|------|------|
-| [详细内容](index.md) | 功能说明、使用流程、常见问题、操作手册等详细内容 |
-| [快速开始](getting-started.md) | 系统安装、配置和首次使用指南 |
-| [功能说明](features.md) | 各功能模块的详细使用说明 |
-| [常见问题](faq.md) | 用户常见问题解答 |
-| [操作手册](operations.md) | 日常操作流程和最佳实践 |
-
-## 适用对象
-
-- **业务用户**：使用 qtcloud-connect 进行沟通管理的最终用户
-- **运营人员**：负责系统日常运营和维护的工作人员
-- **管理员**：具有系统管理权限的用户
-
-## 核心功能
-
-### 沟通管理
-- **对话管理**：创建、编辑、归档对话
-- **消息发送**：支持多种消息类型和模板
-- **联系人管理**：维护联系人信息和分组
-
-### 白板协作
-- **实时协作**：多人同时编辑白板
-- **模板库**：预置多种白板模板
-- **导出功能**：支持多种格式导出
-
-### 数据分析
-- **对话统计**：对话数量、时长、参与度分析
-- **消息分析**：消息类型、发送时间、响应时间统计
-- **报表生成**：自动生成各类统计报表
+- 使用 CLI 创建、查看、更新、确认和废弃共识。
+- 使用 Studio 查看 Provider 中的共识列表和详情。
+- 通过 Provider 持久化共识标题、描述、状态和时间戳。
 
 ## 快速开始
 
-### 1. 系统登录
-- 使用账号密码或 SSO 登录系统
-- 首次登录建议修改密码
-- 记住登录状态以便下次快速访问
+1. 启动 Provider：`cd src/provider && go run cmd/server/main.go`
+2. 创建共识：`qtcloud-connect consensus create --title "共识标题" --description "共识描述"`
+3. 打开 Studio：`cd src/studio && flutter run -d chrome`
+4. 在共识追溯页面查看记录，并点击共识节点查看详情。
 
-### 2. 功能选择
-- 通过导航菜单选择功能模块
-- 使用快捷入口快速访问常用功能
-- 通过搜索快速找到所需功能
+## 常用命令
 
-### 3. 操作执行
-- 按照界面提示进行操作
-- 查看相关帮助文档
-- 联系技术支持获取帮助
+```bash
+qtcloud-connect consensus list
+qtcloud-connect consensus show <consensus-id>
+qtcloud-connect consensus update <consensus-id> --title "新标题" --description "新描述"
+qtcloud-connect consensus confirm <consensus-id>
+qtcloud-connect consensus deprecate <consensus-id>
+```
 
-### 4. 结果查看
-- 查看操作结果反馈
-- 查看相关数据和统计
-- 将结果导出为文件
+## 注意事项
 
-## 相关文档
+- 默认 Provider 地址是 `http://localhost:8000/api`，可通过 `--endpoint` 覆盖。
+- Studio 默认读取同一个 Provider 地址，可通过 `--dart-define=CONNECT_PROVIDER_ENDPOINT=...` 覆盖。
+- 公网环境的认证、HTTPS 和限流由部署网关提供；v0.1 Provider 不内置登录。
 
-- [详细内容](index.md)：完整的功能说明和使用指南
-- [快速开始](getting-started.md)：系统安装和配置指南
-- [功能说明](features.md)：各功能模块的详细使用说明
-- [常见问题](faq.md)：用户常见问题解答
-- [操作手册](operations.md)：日常操作流程和最佳实践
+## 后续路线
 
-## 获取帮助
-
-- **技术支持**：support@quanttide.com
-- **内部工单**：通过系统提交技术支持请求
-- **在线客服**：系统内在线客服
-- **帮助文档**：查看相关帮助文档
+- v0.2：建立 Message -> Consensus -> Memo 的共识加工管道。
+- v0.3：接入 qtdata 等业务系统，加强客户沟通沉淀。

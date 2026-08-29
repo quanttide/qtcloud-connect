@@ -10,12 +10,75 @@ qtcloud-connect/
 │   ├── dev-guide/ # 开发者指南：架构设计、开发环境、编码规范
 │   └── api-references/ # API 参考：接口文档、CLI 命令、数据模型
 └── src/ # 源代码
-    ├── provider/ # 后端服务提供者（FastAPI）— 为本系统和其他系统提供沟通管理能力
-    ├── cli/ # 命令行工具（Rust）— 邮件发送/模板/日志、人才推荐凭证化
-    └── studio/ # 前端工作台（Flutter）— 用户的工作站
+    ├── provider/ # 后端服务提供者（Go）— 共识信息持久化和 API
+    ├── cli/ # 命令行工具（Rust）— 邮件发送/模板/日志、共识手动更新
+    └── studio/ # 前端工作台（Flutter）— 共识追溯页面和用户工作站
 ```
 
-## CLI 使用（发送通道）
+## 共识追溯闭环
+
+v0.1 当前目标是打通 `Provider -> CLI -> Studio` 的最小闭环：
+
+- Provider 使用 Go + SQLite 暴露共识、关系和共识图 API，保存共识标题、描述、状态、时间戳以及可扩展的 DAG 链路。
+- CLI 使用 `qtcloud-connect consensus` 创建、查看、更新、确认和废弃共识。
+- Studio 默认打开可编辑的共识追溯页面，从 Provider 读取图谱，支持新增/编辑共识、拖动节点、建立任意类型的 DAG 关联，以及移出节点或关联。
+
+### 本地启动
+
+```bash
+# Provider
+cd src/provider
+# 可选：私有部署联调时启用 Provider Bearer token
+# export CONNECT_AUTH_TOKEN=replace-with-secret
+go run cmd/server/main.go
+
+# CLI 写入一条真实共识
+cd ../cli
+cargo run -- consensus create \
+  --title "Studio 优先上线共识页面" \
+  --description "v0.1 先打通 CLI 写入、Provider 持久化、Studio 展示。"
+
+# Studio Web
+cd ../studio
+flutter run -d chrome --dart-define=CONNECT_PROVIDER_ENDPOINT=http://localhost:8000/api
+```
+
+## CLI 使用
+
+### 共识管理
+
+```bash
+# 创建共识
+qtcloud-connect consensus create --title "共识标题" --description "共识描述"
+
+# 列表和详情
+qtcloud-connect consensus list
+qtcloud-connect consensus show <consensus-id>
+
+# 更新状态和内容
+qtcloud-connect consensus update <consensus-id> --title "新标题" --description "新描述"
+qtcloud-connect consensus confirm <consensus-id>
+qtcloud-connect consensus deprecate <consensus-id>
+```
+
+`--endpoint` 可覆盖默认 Provider 地址 `http://localhost:8000/api`。如果 Provider 配置了 `CONNECT_AUTH_TOKEN`，CLI 会自动读取同名环境变量并发送 Bearer token。Studio 是静态 Web 产物，不能把服务令牌编入浏览器；公网部署应由认证网关或反向代理完成用户认证并代表 Studio 访问 Provider。
+
+### 共识图编辑
+
+Studio 首次连接到没有图谱的 Provider 时，会创建一个“共识追溯图”，并把已有共识纳入其中。Studio 顶部的图谱切换按钮可在多张任务图之间切换，新建图谱会独立保存，不会覆盖当前图。之后的编辑都通过 Provider 持久化：
+
+- `POST /api/consensus-graphs`、`GET /api/consensus-graphs`、`GET /api/consensus-graphs/{id}`
+- `POST /api/consensus-graphs/{id}/nodes`、`DELETE /api/consensus-graphs/{id}/nodes/{consensus_id}`
+- `PUT /api/consensus-graphs/{id}/nodes/{consensus_id}/position`
+- `POST /api/consensus-relations`、`GET /api/consensus-relations/{id}`、`DELETE /api/consensus-relations/{id}`
+- `POST /api/consensus-graphs/{id}/relations`
+- `POST /api/consensus-graphs/{id}/edges`、`DELETE /api/consensus-graphs/{id}/edges/{relation_id}`
+
+关系类型是字符串而不是固定枚举，可以使用“前置条件”“支持”“反对”“补充”或团队自定义语义。Provider 在把关系加入图时校验两个端点都属于当前图，并拒绝自环和成环关系。
+
+节点拖动按画布坐标跟随鼠标，松手后保存；每张图独立记忆节点位置。
+
+### 发送通道
 
 > 前置：安装 lark-cli 并完成登录（需 mail scope 授权：`lark-cli auth login --scope "mail:user_mailbox.message:send"`）
 >

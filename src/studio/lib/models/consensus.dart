@@ -66,6 +66,22 @@ class ConsensusRelation {
   }
 }
 
+class ConsensusGraphNodePosition {
+  const ConsensusGraphNodePosition({required this.x, required this.y});
+
+  final double x;
+  final double y;
+
+  static ConsensusGraphNodePosition? fromJson(Map<String, dynamic> json) {
+    final x = (json['x'] as num?)?.toDouble();
+    final y = (json['y'] as num?)?.toDouble();
+    if (x == null || y == null || !x.isFinite || !y.isFinite) {
+      return null;
+    }
+    return ConsensusGraphNodePosition(x: x, y: y);
+  }
+}
+
 class ConsensusGraph {
   const ConsensusGraph({
     required this.id,
@@ -75,6 +91,7 @@ class ConsensusGraph {
     required this.edges,
     required this.createdAt,
     required this.updatedAt,
+    this.nodePositions = const {},
   });
 
   final String id;
@@ -84,6 +101,7 @@ class ConsensusGraph {
   final List<ConsensusRelation> edges;
   final String createdAt;
   final String updatedAt;
+  final Map<String, ConsensusGraphNodePosition> nodePositions;
 
   factory ConsensusGraph.fromJson(Map<String, dynamic> json) {
     return ConsensusGraph(
@@ -94,6 +112,7 @@ class ConsensusGraph {
       edges: _decodeList(json['edges'], ConsensusRelation.fromJson),
       createdAt: json['created_at'] as String? ?? '',
       updatedAt: json['updated_at'] as String? ?? '',
+      nodePositions: _decodeNodePositions(json['node_positions']),
     );
   }
 
@@ -103,6 +122,7 @@ class ConsensusGraph {
     List<Consensus>? nodes,
     List<ConsensusRelation>? edges,
     String? updatedAt,
+    Map<String, ConsensusGraphNodePosition>? nodePositions,
   }) {
     return ConsensusGraph(
       id: id,
@@ -112,14 +132,12 @@ class ConsensusGraph {
       edges: edges ?? this.edges,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      nodePositions: nodePositions ?? this.nodePositions,
     );
   }
 }
 
-List<T> _decodeList<T>(
-  Object? value,
-  T Function(Map<String, dynamic>) decode,
-) {
+List<T> _decodeList<T>(Object? value, T Function(Map<String, dynamic>) decode) {
   if (value is! List<dynamic>) {
     return const <Never>[];
   }
@@ -127,4 +145,21 @@ List<T> _decodeList<T>(
       .whereType<Map<String, dynamic>>()
       .map(decode)
       .toList(growable: false);
+}
+
+Map<String, ConsensusGraphNodePosition> _decodeNodePositions(Object? value) {
+  if (value is! Map) {
+    return const {};
+  }
+  final positions = <String, ConsensusGraphNodePosition>{};
+  for (final entry in value.entries) {
+    if (entry.key is! String || entry.value is! Map<String, dynamic>) {
+      continue;
+    }
+    final position = ConsensusGraphNodePosition.fromJson(entry.value);
+    if (position != null) {
+      positions[entry.key as String] = position;
+    }
+  }
+  return Map.unmodifiable(positions);
 }

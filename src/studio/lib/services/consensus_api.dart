@@ -115,6 +115,20 @@ class ConsensusApiClient {
     return ConsensusGraph.fromJson(decoded);
   }
 
+  Future<ConsensusGraph> updateNodePosition({
+    required String graphId,
+    required String consensusId,
+    required double x,
+    required double y,
+  }) async {
+    final decoded = await _request(
+      'PUT',
+      '/consensus-graphs/$graphId/nodes/$consensusId/position',
+      body: {'x': x, 'y': y},
+    );
+    return ConsensusGraph.fromJson(decoded);
+  }
+
   Future<ConsensusRelation> createRelation({
     required String from,
     required String to,

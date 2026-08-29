@@ -35,7 +35,8 @@ class _ConsensusTraceabilityScreenState
   String? _selectedId;
   Object? _error;
   bool _isSaving = false;
-  final Map<String, Offset> _nodePositions = {};
+  final Map<String, Map<String, Offset>> _nodePositionsByGraph = {};
+  final Map<String, Future<void>> _nodePositionSaveTails = {};
 
   bool get _isLocal =>
       widget.loadConsensuses != null || widget.loadGraph != null;
@@ -77,7 +78,7 @@ class _ConsensusTraceabilityScreenState
               child: FutureBuilder<ConsensusGraph>(
                 future: _graphFuture,
                 builder: (context, snapshot) {
-                  final graph = _graph ?? snapshot.data;
+                  final graph = _visibleGraph(snapshot.data);
                   return _ConsensusSurface(
                     graph: graph,
                     selectedId: _selectedId,
@@ -86,7 +87,7 @@ class _ConsensusTraceabilityScreenState
                     error:
                         _error ?? (snapshot.hasError ? snapshot.error : null),
                     isSaving: _isSaving,
-                    nodePositions: _nodePositions,
+                    nodePositions: _nodePositionsByGraph[graph?.id] ?? const {},
                     canAddExistingConsensus: !_isLocal,
                     graphs: _graphs,
                     selectedGraphId: _selectedGraphId,
@@ -96,6 +97,7 @@ class _ConsensusTraceabilityScreenState
                     onCreateGraph: _createGraph,
                     onSelect: (id) => setState(() => _selectedId = id),
                     onMoveNode: _setNodePosition,
+                    onPersistNodePosition: _persistNodePosition,
                     onAddConsensus: _addConsensus,
                     onAddExistingConsensus: _addExistingConsensus,
                     onEditConsensus: _editSelectedConsensus,
@@ -176,7 +178,6 @@ class _ConsensusTraceabilityScreenState
         _selectedId = null;
         _graph = graph;
         _graphFuture = Future.value(graph);
-        _nodePositions.clear();
         _isSaving = false;
       });
     } catch (error) {
@@ -202,7 +203,6 @@ class _ConsensusTraceabilityScreenState
       _selectedId = null;
       _graph = null;
       _error = null;
-      _nodePositions.clear();
       _graphFuture = future;
       _cacheLoadedGraph(future);
     });
@@ -235,9 +235,84 @@ class _ConsensusTraceabilityScreenState
         .catchError((_) {});
   }
 
-  void _setNodePosition(String id, Offset position) {
+  ConsensusGraph? _visibleGraph(ConsensusGraph? snapshotGraph) {
+    if (_isLocal) {
+      return _graph ?? snapshotGraph;
+    }
+    if (_graph?.id == _selectedGraphId) {
+      return _graph;
+    }
+    if (snapshotGraph?.id == _selectedGraphId) {
+      return snapshotGraph;
+    }
+    return null;
+  }
+
+  void _setNodePosition(String graphID, String id, Offset position) {
     setState(() {
-      _nodePositions[id] = position;
+      _nodePositionsByGraph[graphID] = {
+        ..._nodePositionsByGraph[graphID] ?? const {},
+        id: position,
+      };
+    });
+  }
+
+  void _persistNodePosition(String graphID, String id, Offset position) {
+    if (_isLocal) {
+      return;
+    }
+    final previousSave = _nodePositionSaveTails[graphID] ?? Future.value();
+    final save = _saveNodePosition(
+      previousSave,
+      graphID: graphID,
+      consensusID: id,
+      position: position,
+    );
+    _nodePositionSaveTails[graphID] = save;
+  }
+
+  Future<void> _saveNodePosition(
+    Future<void> previousSave, {
+    required String graphID,
+    required String consensusID,
+    required Offset position,
+  }) async {
+    try {
+      await previousSave;
+    } catch (_) {
+      // A later drag should still be able to persist after a failed save.
+    }
+    try {
+      await widget.apiClient.updateNodePosition(
+        graphId: graphID,
+        consensusId: consensusID,
+        x: position.dx,
+        y: position.dy,
+      );
+    } catch (error) {
+      _discardNodePosition(graphID, consensusID, position);
+      if (mounted && _selectedGraphId == graphID) {
+        _showMessage('节点位置未保存：${_formatError(error)}');
+      }
+    }
+  }
+
+  void _discardNodePosition(
+    String graphID,
+    String consensusID,
+    Offset position,
+  ) {
+    if (!mounted || _nodePositionsByGraph[graphID]?[consensusID] != position) {
+      return;
+    }
+    setState(() {
+      final positions = {..._nodePositionsByGraph[graphID]!}
+        ..remove(consensusID);
+      if (positions.isEmpty) {
+        _nodePositionsByGraph.remove(graphID);
+      } else {
+        _nodePositionsByGraph[graphID] = positions;
+      }
     });
   }
 
@@ -548,11 +623,14 @@ class _ConsensusTraceabilityScreenState
     if (_isSaving) {
       return;
     }
+    final graphID = _graph?.id ?? _selectedGraphId;
     setState(() {
       _graph = null;
       _selectedId = null;
       _error = null;
-      _nodePositions.clear();
+      if (graphID != null) {
+        _nodePositionsByGraph.remove(graphID);
+      }
       _graphRequestVersion++;
       _graphFuture = _loadInitialGraph();
       _cacheLoadedGraph(_graphFuture);
@@ -617,6 +695,7 @@ class _ConsensusSurface extends StatelessWidget {
     required this.onCreateGraph,
     required this.onSelect,
     required this.onMoveNode,
+    required this.onPersistNodePosition,
     required this.onAddConsensus,
     required this.onAddExistingConsensus,
     required this.onEditConsensus,
@@ -639,7 +718,9 @@ class _ConsensusSurface extends StatelessWidget {
   final ValueChanged<String> onSelectGraph;
   final VoidCallback onCreateGraph;
   final ValueChanged<String> onSelect;
-  final void Function(String id, Offset position) onMoveNode;
+  final void Function(String graphID, String id, Offset position) onMoveNode;
+  final void Function(String graphID, String id, Offset position)
+  onPersistNodePosition;
   final VoidCallback onAddConsensus;
   final VoidCallback onAddExistingConsensus;
   final VoidCallback onEditConsensus;
@@ -668,6 +749,7 @@ class _ConsensusSurface extends StatelessWidget {
           onCreateGraph: onCreateGraph,
           onSelect: onSelect,
           onMoveNode: onMoveNode,
+          onPersistNodePosition: onPersistNodePosition,
           onAddConsensus: onAddConsensus,
           onAddExistingConsensus: onAddExistingConsensus,
           onEditConsensus: onEditConsensus,
@@ -719,6 +801,7 @@ class _GraphPanel extends StatelessWidget {
     required this.onCreateGraph,
     required this.onSelect,
     required this.onMoveNode,
+    required this.onPersistNodePosition,
     required this.onAddConsensus,
     required this.onAddExistingConsensus,
     required this.onEditConsensus,
@@ -739,7 +822,9 @@ class _GraphPanel extends StatelessWidget {
   final ValueChanged<String> onSelectGraph;
   final VoidCallback onCreateGraph;
   final ValueChanged<String> onSelect;
-  final void Function(String id, Offset position) onMoveNode;
+  final void Function(String graphID, String id, Offset position) onMoveNode;
+  final void Function(String graphID, String id, Offset position)
+  onPersistNodePosition;
   final VoidCallback onAddConsensus;
   final VoidCallback onAddExistingConsensus;
   final VoidCallback onEditConsensus;
@@ -860,6 +945,7 @@ class _GraphPanel extends StatelessWidget {
                   nodePositions: nodePositions,
                   onSelect: onSelect,
                   onMoveNode: onMoveNode,
+                  onPersistNodePosition: onPersistNodePosition,
                 ),
         ),
       ],
@@ -867,74 +953,209 @@ class _GraphPanel extends StatelessWidget {
   }
 }
 
-class _GraphCanvas extends StatelessWidget {
+class _GraphCanvas extends StatefulWidget {
   const _GraphCanvas({
     required this.graph,
     required this.selectedId,
     required this.nodePositions,
     required this.onSelect,
     required this.onMoveNode,
+    required this.onPersistNodePosition,
   });
 
   static const nodeSize = Size(196, 108);
-  static const canvasSize = Size(1200, 760);
+  static const minimumCanvasSize = Size(1200, 760);
 
   final ConsensusGraph graph;
   final String? selectedId;
   final Map<String, Offset> nodePositions;
   final ValueChanged<String> onSelect;
-  final void Function(String id, Offset position) onMoveNode;
+  final void Function(String graphID, String id, Offset position) onMoveNode;
+  final void Function(String graphID, String id, Offset position)
+  onPersistNodePosition;
+
+  @override
+  State<_GraphCanvas> createState() => _GraphCanvasState();
+}
+
+class _GraphCanvasState extends State<_GraphCanvas> {
+  final _transformationController = TransformationController();
+  final Map<String, Offset> _dragPositions = {};
+  String? _draggingNodeID;
+  int? _draggingPointer;
+  bool _nodeWasMoved = false;
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final positions = _layoutNodes(graph);
     final theme = Theme.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLowest,
-        border: Border(
-          top: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-      ),
-      child: ClipRect(
-        child: InteractiveViewer(
-          minScale: 0.55,
-          maxScale: 1.8,
-          boundaryMargin: const EdgeInsets.all(120),
-          constrained: false,
-          child: SizedBox(
-            width: canvasSize.width,
-            height: canvasSize.height,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _GraphEdgesPainter(
-                      graph: graph,
-                      positions: positions,
-                      selectedId: selectedId,
-                    ),
-                  ),
-                ),
-                for (final node in graph.nodes)
-                  Positioned(
-                    left: positions[node.id]!.dx,
-                    top: positions[node.id]!.dy,
-                    width: nodeSize.width,
-                    height: nodeSize.height,
-                    child: _DraggableGraphNode(
-                      consensus: node,
-                      isSelected: selectedId == node.id,
-                      onTap: () => onSelect(node.id),
-                      onMove: (delta) =>
-                          onMoveNode(node.id, positions[node.id]! + delta),
-                    ),
-                  ),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final positions = _layoutNodes(widget.graph);
+        final rightEdge = positions.values.fold(
+          _GraphCanvas.minimumCanvasSize.width,
+          (value, position) =>
+              math.max(value, position.dx + _GraphCanvas.nodeSize.width + 24),
+        );
+        final bottomEdge = positions.values.fold(
+          _GraphCanvas.minimumCanvasSize.height,
+          (value, position) =>
+              math.max(value, position.dy + _GraphCanvas.nodeSize.height + 24),
+        );
+        final canvasSize = Size(
+          math.max(rightEdge, constraints.maxWidth).toDouble(),
+          math.max(bottomEdge, constraints.maxHeight).toDouble(),
+        );
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            border: Border(
+              top: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
           ),
-        ),
-      ),
+          child: ClipRect(
+            child: InteractiveViewer(
+              transformationController: _transformationController,
+              minScale: 0.55,
+              maxScale: 1.8,
+              boundaryMargin: EdgeInsets.zero,
+              panEnabled: _draggingNodeID == null,
+              alignment: Alignment.topLeft,
+              clipBehavior: Clip.hardEdge,
+              constrained: false,
+              child: ColoredBox(
+                color: theme.colorScheme.surface,
+                child: SizedBox(
+                  width: canvasSize.width,
+                  height: canvasSize.height,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: _GraphEdgesPainter(
+                            graph: widget.graph,
+                            positions: positions,
+                            selectedId: widget.selectedId,
+                            labelBackgroundColor: theme.colorScheme.surface,
+                          ),
+                        ),
+                      ),
+                      for (final node in widget.graph.nodes)
+                        Positioned(
+                          left: positions[node.id]!.dx,
+                          top: positions[node.id]!.dy,
+                          width: _GraphCanvas.nodeSize.width,
+                          height: _GraphCanvas.nodeSize.height,
+                          child: _DraggableGraphNode(
+                            key: ValueKey(node.id),
+                            consensus: node,
+                            isSelected: widget.selectedId == node.id,
+                            onTap: () => widget.onSelect(node.id),
+                            onPointerDown: (event) => _startNodeDrag(
+                              node.id,
+                              event,
+                              positions[node.id]!,
+                            ),
+                            onPointerMove: (event) =>
+                                _updateNodeDrag(node.id, event, canvasSize),
+                            onPointerUp: (event) =>
+                                _endNodeDrag(node.id, event),
+                            onPointerCancel: () => _cancelNodeDrag(node.id),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _startNodeDrag(String id, PointerDownEvent event, Offset nodePosition) {
+    if (_draggingPointer != null) {
+      return;
+    }
+    _dragPositions[id] = nodePosition;
+    setState(() {
+      _draggingNodeID = id;
+      _draggingPointer = event.pointer;
+      _nodeWasMoved = false;
+    });
+  }
+
+  void _updateNodeDrag(String id, PointerMoveEvent event, Size canvasSize) {
+    if (_draggingNodeID != id || _draggingPointer != event.pointer) {
+      return;
+    }
+    final currentPosition = _dragPositions[id];
+    if (currentPosition == null) {
+      return;
+    }
+    if (event.delta == Offset.zero) {
+      return;
+    }
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    final position = _clampNodePosition(
+      currentPosition + event.delta / scale,
+      canvasSize,
+    );
+    setState(() {
+      _dragPositions[id] = position;
+      _nodeWasMoved = true;
+    });
+  }
+
+  void _endNodeDrag(String id, PointerUpEvent event) {
+    if (_draggingNodeID != id || _draggingPointer != event.pointer) {
+      return;
+    }
+    _finishNodeDrag(id);
+  }
+
+  void _cancelNodeDrag(String id) {
+    if (_draggingNodeID != id) {
+      return;
+    }
+    _finishNodeDrag(id);
+  }
+
+  void _finishNodeDrag(String id) {
+    final position = _dragPositions.remove(id);
+    final nodeWasMoved = _nodeWasMoved;
+    setState(() {
+      _draggingNodeID = null;
+      _draggingPointer = null;
+      _nodeWasMoved = false;
+    });
+    if (position != null && nodeWasMoved) {
+      widget.onMoveNode(widget.graph.id, id, position);
+      widget.onPersistNodePosition(widget.graph.id, id, position);
+    }
+  }
+
+  Offset _clampNodePosition(Offset position, Size canvasSize) {
+    const padding = 24.0;
+    return Offset(
+      position.dx
+          .clamp(
+            padding,
+            canvasSize.width - _GraphCanvas.nodeSize.width - padding,
+          )
+          .toDouble(),
+      position.dy
+          .clamp(
+            padding,
+            canvasSize.height - _GraphCanvas.nodeSize.height - padding,
+          )
+          .toDouble(),
     );
   }
 
@@ -963,9 +1184,13 @@ class _GraphCanvas extends StatelessWidget {
     for (final entry in byLevel.entries) {
       for (var index = 0; index < entry.value.length; index++) {
         final node = entry.value[index];
+        final persisted = graph.nodePositions[node.id];
         result[node.id] =
-            nodePositions[node.id] ??
-            Offset(72 + entry.key * 270, 72 + index * 148);
+            _dragPositions[node.id] ??
+            widget.nodePositions[node.id] ??
+            (persisted == null
+                ? Offset(72 + entry.key * 270, 72 + index * 148)
+                : Offset(persisted.x, persisted.y));
       }
     }
     return result;
@@ -977,11 +1202,13 @@ class _GraphEdgesPainter extends CustomPainter {
     required this.graph,
     required this.positions,
     required this.selectedId,
+    required this.labelBackgroundColor,
   });
 
   final ConsensusGraph graph;
   final Map<String, Offset> positions;
   final String? selectedId;
+  final Color labelBackgroundColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1031,7 +1258,7 @@ class _GraphEdgesPainter extends CustomPainter {
           style: TextStyle(
             fontSize: 12,
             color: Colors.blueGrey.shade700,
-            backgroundColor: Colors.white,
+            backgroundColor: labelBackgroundColor,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -1051,84 +1278,98 @@ class _GraphEdgesPainter extends CustomPainter {
   bool shouldRepaint(covariant _GraphEdgesPainter oldDelegate) {
     return oldDelegate.graph != graph ||
         oldDelegate.selectedId != selectedId ||
-        oldDelegate.positions != positions;
+        oldDelegate.positions != positions ||
+        oldDelegate.labelBackgroundColor != labelBackgroundColor;
   }
 }
 
 class _DraggableGraphNode extends StatelessWidget {
   const _DraggableGraphNode({
+    super.key,
     required this.consensus,
     required this.isSelected,
     required this.onTap,
-    required this.onMove,
+    required this.onPointerDown,
+    required this.onPointerMove,
+    required this.onPointerUp,
+    required this.onPointerCancel,
   });
 
   final Consensus consensus;
   final bool isSelected;
   final VoidCallback onTap;
-  final ValueChanged<Offset> onMove;
+  final ValueChanged<PointerDownEvent> onPointerDown;
+  final ValueChanged<PointerMoveEvent> onPointerMove;
+  final ValueChanged<PointerUpEvent> onPointerUp;
+  final VoidCallback onPointerCancel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final statusColor = _statusColor(theme, consensus.status);
-    return GestureDetector(
-      onTap: onTap,
-      onPanUpdate: (details) => onMove(details.delta),
-      child: Material(
-        color: isSelected
-            ? theme.colorScheme.primaryContainer
-            : theme.colorScheme.surface,
-        elevation: isSelected ? 5 : 2,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: isSelected
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outlineVariant,
-              width: isSelected ? 2 : 1,
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: onPointerDown,
+      onPointerMove: onPointerMove,
+      onPointerUp: onPointerUp,
+      onPointerCancel: (_) => onPointerCancel(),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Material(
+          color: isSelected
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.surface,
+          elevation: isSelected ? 5 : 2,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outlineVariant,
+                width: isSelected ? 2 : 1,
+              ),
+              borderRadius: BorderRadius.circular(8),
             ),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 8,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  borderRadius: BorderRadius.circular(4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 8,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      consensus.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        consensus.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      consensus.description.isEmpty
-                          ? '暂无描述'
-                          : consensus.description,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        consensus.description.isEmpty
+                            ? '暂无描述'
+                            : consensus.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

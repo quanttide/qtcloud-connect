@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -15,6 +16,8 @@ const (
 	maxRelationTypeLength     = 100
 	maxGraphNameLength        = 200
 	maxGraphDescriptionLength = 4000
+	maxGraphNodeCoordinate    = 100000
+	maxGraphNodePositionBytes = 1024
 )
 
 // ConsensusGraphHandler 是共识图和共识关系 API 处理器。
@@ -40,6 +43,11 @@ type createConsensusGraphRequest struct {
 
 type graphNodeRequest struct {
 	ConsensusID string `json:"consensus_id"`
+}
+
+type updateGraphNodePositionRequest struct {
+	X *float64 `json:"x"`
+	Y *float64 `json:"y"`
 }
 
 type graphEdgeRequest struct {
@@ -158,13 +166,14 @@ func (h *ConsensusGraphHandler) CreateConsensusGraph(w http.ResponseWriter, r *h
 
 	now := time.Now().UTC()
 	graph := &domain.ConsensusGraph{
-		ID:          newID(),
-		Name:        req.Name,
-		Description: req.Description,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		Nodes:       []*domain.Consensus{},
-		Edges:       []*domain.ConsensusRelation{},
+		ID:            newID(),
+		Name:          req.Name,
+		Description:   req.Description,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		Nodes:         []*domain.Consensus{},
+		Edges:         []*domain.ConsensusRelation{},
+		NodePositions: map[string]domain.ConsensusGraphNodePosition{},
 	}
 	if err := h.storage.AddConsensusGraph(graph); err != nil {
 		writeError(w, err.Error(), http.StatusInternalServerError)
@@ -277,6 +286,38 @@ func (h *ConsensusGraphHandler) RemoveConsensusGraphNode(w http.ResponseWriter, 
 	writeJSON(w, graph, http.StatusOK)
 }
 
+// UpdateConsensusGraphNodePosition 保存图中节点的画布位置。
+func (h *ConsensusGraphHandler) UpdateConsensusGraphNodePosition(w http.ResponseWriter, r *http.Request) {
+	var req updateGraphNodePositionRequest
+	r.Body = http.MaxBytesReader(w, r.Body, maxGraphNodePositionBytes)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.X == nil ||
+		req.Y == nil ||
+		!isValidGraphNodeCoordinate(*req.X) ||
+		!isValidGraphNodeCoordinate(*req.Y) {
+		writeError(w, "x and y must be finite coordinates within the canvas limit", http.StatusBadRequest)
+		return
+	}
+
+	graph, err := h.storage.UpdateConsensusGraphNodePosition(
+		r.PathValue("id"),
+		r.PathValue("consensus_id"),
+		domain.ConsensusGraphNodePosition{X: *req.X, Y: *req.Y},
+	)
+	if err != nil {
+		writeError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if graph == nil {
+		writeError(w, "graph node not found", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, graph, http.StatusOK)
+}
+
 // AddConsensusGraphEdge 将共识关系加入图。
 func (h *ConsensusGraphHandler) AddConsensusGraphEdge(w http.ResponseWriter, r *http.Request) {
 	var req graphEdgeRequest
@@ -374,4 +415,10 @@ func (h *ConsensusGraphHandler) RemoveConsensusGraphEdge(w http.ResponseWriter, 
 		return
 	}
 	writeJSON(w, graph, http.StatusOK)
+}
+
+func isValidGraphNodeCoordinate(value float64) bool {
+	return !math.IsNaN(value) &&
+		!math.IsInf(value, 0) &&
+		math.Abs(value) <= maxGraphNodeCoordinate
 }

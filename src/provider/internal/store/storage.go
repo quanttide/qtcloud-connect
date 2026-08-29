@@ -79,6 +79,7 @@ func (s *Storage) initTables() error {
 		);
 		CREATE TABLE IF NOT EXISTS consensus_graph_nodes (
 			graph_id TEXT NOT NULL, consensus_id TEXT NOT NULL,
+			position_x REAL, position_y REAL,
 			PRIMARY KEY (graph_id, consensus_id)
 		);
 		CREATE TABLE IF NOT EXISTS consensus_graph_edges (
@@ -99,6 +100,12 @@ func (s *Storage) initTables() error {
 		return err
 	}
 	if err := s.ensureColumn("consensuses", "updated_at", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := s.ensureColumn("consensus_graph_nodes", "position_x", "REAL"); err != nil {
+		return err
+	}
+	if err := s.ensureColumn("consensus_graph_nodes", "position_y", "REAL"); err != nil {
 		return err
 	}
 	return s.migrateConsensusRows()
@@ -533,6 +540,10 @@ func (s *Storage) GetConsensusGraph(id string) (*domain.ConsensusGraph, error) {
 	if err != nil {
 		return nil, err
 	}
+	graph.NodePositions, err = s.listGraphNodePositions(id)
+	if err != nil {
+		return nil, err
+	}
 	graph.Edges, err = s.listGraphEdges(id)
 	if err != nil {
 		return nil, err
@@ -565,6 +576,52 @@ func (s *Storage) AddConsensusGraphNode(graphID, consensusID string) (*domain.Co
 		return nil, err
 	}
 	if err := s.touchConsensusGraph(graphID); err != nil {
+		return nil, err
+	}
+	return s.GetConsensusGraph(graphID)
+}
+
+// UpdateConsensusGraphNodePosition 保存图中节点的画布位置。
+func (s *Storage) UpdateConsensusGraphNodePosition(
+	graphID,
+	consensusID string,
+	position domain.ConsensusGraphNodePosition,
+) (*domain.ConsensusGraph, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	result, err := tx.Exec(
+		`UPDATE consensus_graph_nodes
+		SET position_x = ?, position_y = ?
+		WHERE graph_id = ? AND consensus_id = ?`,
+		position.X,
+		position.Y,
+		graphID,
+		consensusID,
+	)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+	if changed == 0 {
+		_ = tx.Rollback()
+		return nil, nil
+	}
+	if _, err := tx.Exec(
+		"UPDATE consensus_graphs SET updated_at = ? WHERE id = ?",
+		time.Now().UTC().Format(time.RFC3339),
+		graphID,
+	); err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return s.GetConsensusGraph(graphID)
@@ -753,6 +810,31 @@ func (s *Storage) listGraphNodes(graphID string) ([]*domain.Consensus, error) {
 	return nodes, rows.Err()
 }
 
+func (s *Storage) listGraphNodePositions(
+	graphID string,
+) (map[string]domain.ConsensusGraphNodePosition, error) {
+	rows, err := s.db.Query(`
+		SELECT consensus_id, position_x, position_y
+		FROM consensus_graph_nodes
+		WHERE graph_id = ? AND position_x IS NOT NULL AND position_y IS NOT NULL
+	`, graphID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	positions := make(map[string]domain.ConsensusGraphNodePosition)
+	for rows.Next() {
+		var consensusID string
+		var position domain.ConsensusGraphNodePosition
+		if err := rows.Scan(&consensusID, &position.X, &position.Y); err != nil {
+			return nil, err
+		}
+		positions[consensusID] = position
+	}
+	return positions, rows.Err()
+}
+
 func (s *Storage) listGraphEdges(graphID string) ([]*domain.ConsensusRelation, error) {
 	rows, err := s.db.Query(`
 		SELECT r.id, r.from_id, r.to_id, r.relation_type
@@ -800,6 +882,7 @@ func scanConsensusGraph(row *sql.Row) (*domain.ConsensusGraph, error) {
 	graph.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
 	graph.Nodes = make([]*domain.Consensus, 0)
 	graph.Edges = make([]*domain.ConsensusRelation, 0)
+	graph.NodePositions = make(map[string]domain.ConsensusGraphNodePosition)
 	return &graph, nil
 }
 
@@ -814,6 +897,7 @@ func scanConsensusGraphRows(rows *sql.Rows) (*domain.ConsensusGraph, error) {
 	graph.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
 	graph.Nodes = make([]*domain.Consensus, 0)
 	graph.Edges = make([]*domain.ConsensusRelation, 0)
+	graph.NodePositions = make(map[string]domain.ConsensusGraphNodePosition)
 	return &graph, nil
 }
 

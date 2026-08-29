@@ -69,11 +69,14 @@ Studio 首次连接到没有图谱的 Provider 时，会创建一个“共识追
 
 - `POST /api/consensus-graphs`、`GET /api/consensus-graphs`、`GET /api/consensus-graphs/{id}`
 - `POST /api/consensus-graphs/{id}/nodes`、`DELETE /api/consensus-graphs/{id}/nodes/{consensus_id}`
+- `PUT /api/consensus-graphs/{id}/nodes/{consensus_id}/position`
 - `POST /api/consensus-relations`、`GET /api/consensus-relations/{id}`、`DELETE /api/consensus-relations/{id}`
 - `POST /api/consensus-graphs/{id}/relations`
 - `POST /api/consensus-graphs/{id}/edges`、`DELETE /api/consensus-graphs/{id}/edges/{relation_id}`
 
 关系类型是字符串而不是固定枚举，可以使用“前置条件”“支持”“反对”“补充”或团队自定义语义。Provider 在把关系加入图时校验两个端点都属于当前图，并拒绝自环和成环关系。
+
+节点拖动按画布坐标跟随鼠标，松手后保存；每张图独立记忆节点位置。
 
 ### 发送通道
 

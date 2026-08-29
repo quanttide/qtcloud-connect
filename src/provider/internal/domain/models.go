@@ -36,13 +36,20 @@ type ConsensusRelation struct {
 	RelationType string `json:"relation_type"`
 }
 
+// ConsensusGraphNodePosition 是一个共识节点在特定图中的画布坐标。
+type ConsensusGraphNodePosition struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
 // ConsensusGraph 是以 DAG 组织共识节点和关系边的图。
 type ConsensusGraph struct {
-	ID          string               `json:"id"`
-	Name        string               `json:"name"`
-	Description string               `json:"description"`
-	Nodes       []*Consensus         `json:"nodes"`
-	Edges       []*ConsensusRelation `json:"edges"`
-	CreatedAt   time.Time            `json:"created_at"`
-	UpdatedAt   time.Time            `json:"updated_at"`
+	ID            string                                `json:"id"`
+	Name          string                                `json:"name"`
+	Description   string                                `json:"description"`
+	Nodes         []*Consensus                          `json:"nodes"`
+	Edges         []*ConsensusRelation                  `json:"edges"`
+	NodePositions map[string]ConsensusGraphNodePosition `json:"node_positions"`
+	CreatedAt     time.Time                             `json:"created_at"`
+	UpdatedAt     time.Time                             `json:"updated_at"`
 }

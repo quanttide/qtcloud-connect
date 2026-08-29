@@ -43,6 +43,7 @@ func NewRouter(s *store.Storage) http.Handler {
 	mux.HandleFunc("PUT /api/consensus-graphs/{id}", graphHandler.UpdateConsensusGraph)
 	mux.HandleFunc("POST /api/consensus-graphs/{id}/nodes", graphHandler.AddConsensusGraphNode)
 	mux.HandleFunc("DELETE /api/consensus-graphs/{id}/nodes/{consensus_id}", graphHandler.RemoveConsensusGraphNode)
+	mux.HandleFunc("PUT /api/consensus-graphs/{id}/nodes/{consensus_id}/position", graphHandler.UpdateConsensusGraphNodePosition)
 	mux.HandleFunc("POST /api/consensus-graphs/{id}/relations", graphHandler.CreateConsensusGraphRelation)
 	mux.HandleFunc("POST /api/consensus-graphs/{id}/edges", graphHandler.AddConsensusGraphEdge)
 	mux.HandleFunc("DELETE /api/consensus-graphs/{id}/edges/{relation_id}", graphHandler.RemoveConsensusGraphEdge)

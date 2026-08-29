@@ -556,4 +556,29 @@ func TestConsensusGraphNodePositionPersists(t *testing.T) {
 	if invalid.Code != http.StatusBadRequest {
 		t.Fatalf("invalid graph node position status = %d, body = %s", invalid.Code, invalid.Body.String())
 	}
+
+	missing := doJSON(
+		t,
+		router,
+		http.MethodPut,
+		"/api/consensus-graphs/"+graph.ID+"/nodes/"+consensus.ID+"/position",
+		map[string]float64{"x": 12},
+	)
+	if missing.Code != http.StatusBadRequest {
+		t.Fatalf("missing graph node coordinate status = %d, body = %s", missing.Code, missing.Body.String())
+	}
+
+	oversizedRequest := httptest.NewRequest(
+		http.MethodPut,
+		"/api/consensus-graphs/"+graph.ID+"/nodes/"+consensus.ID+"/position",
+		strings.NewReader(
+			`{"x":1,"y":2,"padding":"`+strings.Repeat("x", 2048)+`"}`,
+		),
+	)
+	oversizedRequest.Header.Set("Content-Type", "application/json")
+	oversized := httptest.NewRecorder()
+	router.ServeHTTP(oversized, oversizedRequest)
+	if oversized.Code != http.StatusBadRequest {
+		t.Fatalf("oversized graph node position status = %d, body = %s", oversized.Code, oversized.Body.String())
+	}
 }

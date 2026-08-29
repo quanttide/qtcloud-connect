@@ -34,6 +34,30 @@ void main() {
 
     expect(find.text('CLI 可以记录真实共识'), findsOneWidget);
     expect(find.text('Provider 持久化后 Studio 展示。'), findsOneWidget);
-    expect(find.text('共识总数'), findsOneWidget);
+    expect(find.text('图谱概览'), findsOneWidget);
+  });
+
+  testWidgets('consensus screen exposes graph editing controls', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ConsensusTraceabilityScreen(
+          loadConsensuses: () async => const [
+            Consensus(
+              id: 'c1',
+              title: '可编辑共识',
+              description: '支持扩展链路。',
+              createdAt: '2026-08-29T10:00:00Z',
+              updatedAt: '2026-08-29T10:00:00Z',
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('添加共识'), findsOneWidget);
+    expect(find.byTooltip('编辑共识'), findsOneWidget);
+    expect(find.byTooltip('添加关联'), findsOneWidget);
   });
 }

@@ -1121,7 +1121,7 @@ class _GraphCanvasState extends State<_GraphCanvas> {
     final scaleRatio = nextScale / currentScale;
     _transformationController.value = Matrix4.copy(
       _transformationController.value,
-    )..scale(scaleRatio);
+    )..scaleByDouble(scaleRatio, scaleRatio, scaleRatio, 1.0);
   }
 
   void _resetZoom() {

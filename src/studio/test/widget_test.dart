@@ -67,6 +67,54 @@ void main() {
     expect(find.byTooltip('添加关联'), findsOneWidget);
   });
 
+  testWidgets('graph canvas exposes a wider zoom range and zoom controls', (
+    tester,
+  ) async {
+    const graph = ConsensusGraph(
+      id: 'zoom-graph',
+      name: '缩放范围',
+      description: '验证画布缩放范围和控制按钮。',
+      nodes: [
+        Consensus(
+          id: 'zoom-node',
+          title: '可缩放节点',
+          description: '画布应支持更大的缩放范围。',
+          createdAt: '2026-08-29T10:00:00Z',
+          updatedAt: '2026-08-29T10:00:00Z',
+        ),
+      ],
+      edges: [],
+      createdAt: '2026-08-29T10:00:00Z',
+      updatedAt: '2026-08-29T10:00:00Z',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ConsensusTraceabilityScreen(
+          apiClient: _GraphApiClient(const [graph]),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final viewer = tester.widget<InteractiveViewer>(
+      find.byType(InteractiveViewer),
+    );
+    expect(viewer.minScale, closeTo(0.2, 0.001));
+    expect(viewer.maxScale, closeTo(4.0, 0.001));
+    expect(viewer.boundaryMargin, const EdgeInsets.all(1600));
+    expect(find.byTooltip('缩小'), findsOneWidget);
+    expect(find.byTooltip('复位缩放'), findsOneWidget);
+    expect(find.byTooltip('放大'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('放大'));
+    await tester.pump();
+    expect(
+      viewer.transformationController!.value.getMaxScaleOnAxis(),
+      greaterThan(1.0),
+    );
+  });
+
   testWidgets('user switches between independent consensus graphs', (
     tester,
   ) async {

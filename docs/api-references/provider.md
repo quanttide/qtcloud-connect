@@ -121,12 +121,66 @@ GET /api/consensus-graphs/{id}
 PUT /api/consensus-graphs/{id}
 POST /api/consensus-graphs/{id}/nodes
 DELETE /api/consensus-graphs/{id}/nodes/{consensus_id}
+PUT /api/consensus-graphs/{id}/nodes/{consensus_id}/position
 POST /api/consensus-graphs/{id}/relations
 POST /api/consensus-graphs/{id}/edges
 DELETE /api/consensus-graphs/{id}/edges/{relation_id}
 ```
 
 `POST /api/consensus-graphs/{id}/relations` 会原子创建关系并加入图；如果会形成环，返回 `409 Conflict` 且不会写入孤立关系。
+
+### 更新共识图节点位置
+
+节点位置属于具体共识图的展示布局数据，不会修改共识本身。Studio 在节点拖动结束后调用此接口保存位置。
+
+```http
+PUT /api/consensus-graphs/{id}/nodes/{consensus_id}/position
+Content-Type: application/json
+```
+
+请求体：
+
+```json
+{
+  "x": 420,
+  "y": 430
+}
+```
+
+响应为更新后的完整共识图：
+
+```json
+{
+  "id": "graph-id",
+  "name": "共识追溯图",
+  "description": "团队共识的可编辑决策网络。",
+  "nodes": [],
+  "edges": [],
+  "node_positions": {
+    "consensus-id": {
+      "x": 420,
+      "y": 430
+    }
+  },
+  "created_at": "2026-08-29T10:00:00Z",
+  "updated_at": "2026-08-29T10:05:00Z"
+}
+```
+
+约束：
+
+- `x` 和 `y` 必须同时提供，并且必须是有限数字。
+- 坐标绝对值不能超过 `100000`。
+- 单次请求体最大为 `1024` 字节。
+- 位置按 `graph_id + consensus_id` 独立保存；切换图谱不会复用其他图的位置。
+- 更新位置会更新共识图的 `updated_at`，不会更新共识节点的 `updated_at`。
+
+错误响应：
+
+| 状态码 | 场景 |
+|--------|------|
+| `400 Bad Request` | 请求体格式错误、缺少坐标、坐标非法或请求体超限 |
+| `404 Not Found` | 共识图或指定节点不存在 |
 
 全局关系接口仍可用于复用或管理关系：
 

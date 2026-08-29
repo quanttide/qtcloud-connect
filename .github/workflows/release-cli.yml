@@ -83,13 +83,13 @@ jobs:
         run: |
           VERSION="${RELEASE_TAG#cli/}"
           if [[ "$VERSION" == *-alpha.* || "$VERSION" == *-beta.* || "$VERSION" == *-rc.* ]]; then
-            gh release edit "$RELEASE_TAG" --prerelease --verify-tag
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --prerelease --verify-tag
           fi
       - name: upload release assets
         env:
           RELEASE_TAG: ${{ github.ref_name }}
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$RELEASE_TAG" release-assets/* --clobber
+        run: gh release upload "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
 
   quality-gates:
     needs: check

@@ -89,7 +89,12 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+        run: >-
+          gh release upload "$RELEASE_TAG"
+          release-assets/qtcloud-connect-linux-x86_64
+          release-assets/qtcloud-connect-macos-arm64
+          release-assets/qtcloud-connect-windows-x86_64.exe
+          --repo "$GITHUB_REPOSITORY" --clobber
 
   quality-gates:
     needs: check

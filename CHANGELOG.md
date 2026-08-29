@@ -9,6 +9,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- CLI 发布工作流现在会将三平台二进制上传到 GitHub Release，并自动标记预发布版本。
+
 ### Added
 
 - Provider: 新增共识创建、列表、详情、更新、确认和废弃接口，并补充 SQLite 存储测试。

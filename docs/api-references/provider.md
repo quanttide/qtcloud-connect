@@ -16,6 +16,7 @@ go run cmd/server/main.go
 | `DB_PATH` | `data/qtcloud-connect.db` | SQLite 数据库路径，首次启动会自动创建父目录 |
 | `PORT` | `8000` | HTTP 服务端口 |
 | `CONNECT_ALLOWED_ORIGINS` | 空 | 逗号分隔 CORS 白名单；为空时允许目标 Studio 域名和本地开发端口 |
+| `CONNECT_AUTH_TOKEN` | 空 | 可选 Bearer token；配置后所有 `/api` 请求都必须带 `Authorization: Bearer <token>` |
 
 ## 共识 API
 
@@ -85,6 +86,8 @@ Content-Type: application/json
 }
 ```
 
+已确认或已废弃的共识不能再编辑标题和描述，更新时返回 `409 Conflict`。
+
 ### 确认共识
 
 ```http
@@ -105,6 +108,33 @@ Content-Type: application/json
 
 ```json
 { "consensus_id": "7d7a20cfd7d3446eaf4b9c531f9e3c18" }
+```
+
+## 共识图 API
+
+共识图是 DAG，用来保存共识之间的可扩展链路。关系类型是字符串，可使用“前置条件”“支持”“反对”“补充”或团队自定义语义。
+
+```http
+POST /api/consensus-graphs
+GET /api/consensus-graphs
+GET /api/consensus-graphs/{id}
+PUT /api/consensus-graphs/{id}
+POST /api/consensus-graphs/{id}/nodes
+DELETE /api/consensus-graphs/{id}/nodes/{consensus_id}
+POST /api/consensus-graphs/{id}/relations
+POST /api/consensus-graphs/{id}/edges
+DELETE /api/consensus-graphs/{id}/edges/{relation_id}
+```
+
+`POST /api/consensus-graphs/{id}/relations` 会原子创建关系并加入图；如果会形成环，返回 `409 Conflict` 且不会写入孤立关系。
+
+全局关系接口仍可用于复用或管理关系：
+
+```http
+POST /api/consensus-relations
+GET /api/consensus-relations/{id}
+DELETE /api/consensus-relations/{id}
+GET /api/consensuses/{id}/relations?direction=incoming|outgoing|all
 ```
 
 ## 消息 API
@@ -142,4 +172,4 @@ GET /healthz
 CONNECT_ALLOWED_ORIGINS=https://studio.connect.cloud.quanttide.com,https://preview.example.com
 ```
 
-不在白名单中的带 `Origin` 预检请求返回 `403`。Provider v0.1 不内置认证和限流，公网部署必须放在认证、HTTPS、限流网关之后。
+不在白名单中的带 `Origin` 预检请求返回 `403`。`CONNECT_AUTH_TOKEN` 只提供服务级 Bearer 校验；公网部署仍必须放在用户级认证、HTTPS、限流网关之后。

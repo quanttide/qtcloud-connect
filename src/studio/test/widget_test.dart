@@ -37,7 +37,9 @@ void main() {
     expect(find.text('图谱概览'), findsOneWidget);
   });
 
-  testWidgets('consensus screen exposes graph editing controls', (tester) async {
+  testWidgets('consensus screen exposes graph editing controls', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: ConsensusTraceabilityScreen(
@@ -57,6 +59,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byTooltip('添加共识'), findsOneWidget);
+    expect(find.byTooltip('纳入已有共识'), findsOneWidget);
     expect(find.byTooltip('编辑共识'), findsOneWidget);
     expect(find.byTooltip('添加关联'), findsOneWidget);
   });

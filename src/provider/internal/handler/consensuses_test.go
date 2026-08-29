@@ -26,6 +26,11 @@ func newTestRouter(t *testing.T) http.Handler {
 
 func doJSON(t *testing.T, router http.Handler, method string, path string, body any) *httptest.ResponseRecorder {
 	t.Helper()
+	return doJSONWithHeaders(t, router, method, path, body, nil)
+}
+
+func doJSONWithHeaders(t *testing.T, router http.Handler, method string, path string, body any, headers map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
 
 	var buf bytes.Buffer
 	if body != nil {
@@ -35,6 +40,9 @@ func doJSON(t *testing.T, router http.Handler, method string, path string, body 
 	}
 	req := httptest.NewRequest(method, path, &buf)
 	req.Header.Set("Content-Type", "application/json")
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	return rec
@@ -116,6 +124,48 @@ func TestCreateConsensusRejectsEmptyTitle(t *testing.T) {
 	})
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("POST /api/consensuses status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAuthTokenProtectsAPIWhenConfigured(t *testing.T) {
+	t.Setenv("CONNECT_AUTH_TOKEN", "test-secret")
+	router := newTestRouter(t)
+
+	unauthorized := doJSON(t, router, http.MethodPost, "/api/consensuses", map[string]string{
+		"title": "未授权写入",
+	})
+	if unauthorized.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthorized POST status = %d, body = %s", unauthorized.Code, unauthorized.Body.String())
+	}
+	if unauthorized.Header().Get("WWW-Authenticate") == "" {
+		t.Fatalf("WWW-Authenticate header is empty")
+	}
+
+	authorized := doJSONWithHeaders(
+		t,
+		router,
+		http.MethodPost,
+		"/api/consensuses",
+		map[string]string{"title": "授权写入"},
+		map[string]string{"Authorization": "Bearer test-secret"},
+	)
+	if authorized.Code != http.StatusCreated {
+		t.Fatalf("authorized POST status = %d, body = %s", authorized.Code, authorized.Body.String())
+	}
+
+	health := httptest.NewRecorder()
+	router.ServeHTTP(health, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if health.Code != http.StatusOK {
+		t.Fatalf("health status = %d, body = %s", health.Code, health.Body.String())
+	}
+
+	optionsReq := httptest.NewRequest(http.MethodOptions, "/api/consensuses", nil)
+	optionsReq.Header.Set("Origin", "https://studio.connect.cloud.quanttide.com")
+	optionsReq.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	options := httptest.NewRecorder()
+	router.ServeHTTP(options, optionsReq)
+	if options.Code != http.StatusNoContent {
+		t.Fatalf("OPTIONS status = %d, body = %s", options.Code, options.Body.String())
 	}
 }
 
@@ -325,29 +375,29 @@ func TestConsensusGraphCanBeEditedWithArbitraryDAGLinks(t *testing.T) {
 		t.Fatalf("relation list total = %d", relationList.Total)
 	}
 
-	cycleRelation := doJSON(t, router, http.MethodPost, "/api/consensus-relations", map[string]string{
+	cycleEdge := doJSON(t, router, http.MethodPost, "/api/consensus-graphs/"+graphCreated.ID+"/relations", map[string]string{
 		"from":          consensusIDs[2],
 		"to":            consensusIDs[0],
 		"relation_type": "反向验证",
 	})
-	if cycleRelation.Code != http.StatusCreated {
-		t.Fatalf("create cycle relation status = %d, body = %s", cycleRelation.Code, cycleRelation.Body.String())
-	}
-	var cycleRelationValue struct {
-		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(cycleRelation.Body.Bytes(), &cycleRelationValue); err != nil {
-		t.Fatalf("decode cycle relation: %v", err)
-	}
-	cycleEdge := doJSON(
-		t,
-		router,
-		http.MethodPost,
-		"/api/consensus-graphs/"+graphCreated.ID+"/edges",
-		map[string]string{"relation_id": cycleRelationValue.ID},
-	)
 	if cycleEdge.Code != http.StatusConflict {
 		t.Fatalf("cycle edge status = %d, body = %s", cycleEdge.Code, cycleEdge.Body.String())
+	}
+	outgoingAfterCycle := doJSON(
+		t,
+		router,
+		http.MethodGet,
+		"/api/consensuses/"+consensusIDs[2]+"/relations?direction=outgoing",
+		nil,
+	)
+	var outgoingAfterCycleValue struct {
+		Total int `json:"total"`
+	}
+	if err := json.Unmarshal(outgoingAfterCycle.Body.Bytes(), &outgoingAfterCycleValue); err != nil {
+		t.Fatalf("decode outgoing relations after cycle rejection: %v", err)
+	}
+	if outgoingAfterCycleValue.Total != 0 {
+		t.Fatalf("cycle rejection left outgoing relations = %d", outgoingAfterCycleValue.Total)
 	}
 
 	updated := doJSON(
@@ -362,6 +412,30 @@ func TestConsensusGraphCanBeEditedWithArbitraryDAGLinks(t *testing.T) {
 	)
 	if updated.Code != http.StatusOK {
 		t.Fatalf("update consensus status = %d, body = %s", updated.Code, updated.Body.String())
+	}
+
+	confirmed := doJSON(
+		t,
+		router,
+		http.MethodPost,
+		"/api/consensuses/confirm",
+		map[string]string{"consensus_id": consensusIDs[0]},
+	)
+	if confirmed.Code != http.StatusOK {
+		t.Fatalf("confirm consensus status = %d, body = %s", confirmed.Code, confirmed.Body.String())
+	}
+	updateConfirmed := doJSON(
+		t,
+		router,
+		http.MethodPut,
+		"/api/consensuses/"+consensusIDs[0],
+		map[string]string{
+			"title":       "确认后不应编辑",
+			"description": "确认状态必须保持不可变。",
+		},
+	)
+	if updateConfirmed.Code != http.StatusConflict {
+		t.Fatalf("update confirmed consensus status = %d, body = %s", updateConfirmed.Code, updateConfirmed.Body.String())
 	}
 
 	removedEdge := doJSON(

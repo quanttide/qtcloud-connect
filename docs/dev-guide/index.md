@@ -38,8 +38,9 @@ go run cmd/server/main.go
 | `DB_PATH` | `data/qtcloud-connect.db` | SQLite 数据库路径 |
 | `PORT` | `8000` | HTTP 端口 |
 | `CONNECT_ALLOWED_ORIGINS` | 空 | 逗号分隔 CORS 白名单 |
+| `CONNECT_AUTH_TOKEN` | 空 | 可选 Bearer token，配置后保护所有 `/api` 请求 |
 
-Provider 默认允许目标 Studio 域名和本地开发端口跨域访问。公网部署必须通过网关补齐认证、HTTPS 和限流。
+Provider 默认允许目标 Studio 域名和本地开发端口跨域访问。`CONNECT_AUTH_TOKEN` 适合私有部署联调；公网部署仍必须通过网关补齐用户级认证、HTTPS 和限流。
 
 ## CLI
 
@@ -74,7 +75,7 @@ flutter run -d chrome --dart-define=CONNECT_PROVIDER_ENDPOINT=http://localhost:8
 ```
 
 `CONNECT_PROVIDER_ENDPOINT` 默认值是 `http://localhost:8000/api`。部署到
-`https://studio.connect.cloud.quanttide.com` 后，需要 Provider 的 CORS 白名单包含该域名。
+`https://studio.connect.cloud.quanttide.com` 后，需要 Provider 的 CORS 白名单包含该域名。Studio 是静态 Web 产物，不能把 Provider 服务令牌传给浏览器；生产环境应由认证网关或反向代理完成用户认证，并在服务端持有 `CONNECT_AUTH_TOKEN`。
 
 ## 发布与部署
 

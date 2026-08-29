@@ -169,7 +169,7 @@ fn run_result(args: &ConsensusArgs) -> Result<()> {
 }
 
 fn get_json(client: &ureq::Agent, url: String) -> Result<serde_json::Value> {
-    handle_response(client.get(&url).call())
+    handle_response(with_auth(client.get(&url)).call())
 }
 
 fn post_json<T: Serialize>(
@@ -177,7 +177,7 @@ fn post_json<T: Serialize>(
     url: String,
     body: &T,
 ) -> Result<serde_json::Value> {
-    handle_response(client.post(&url).send_json(serde_json::to_value(body)?))
+    handle_response(with_auth(client.post(&url)).send_json(serde_json::to_value(body)?))
 }
 
 fn put_json<T: Serialize>(
@@ -185,7 +185,17 @@ fn put_json<T: Serialize>(
     url: String,
     body: &T,
 ) -> Result<serde_json::Value> {
-    handle_response(client.put(&url).send_json(serde_json::to_value(body)?))
+    handle_response(with_auth(client.put(&url)).send_json(serde_json::to_value(body)?))
+}
+
+fn with_auth(request: ureq::Request) -> ureq::Request {
+    let token = std::env::var("CONNECT_AUTH_TOKEN").unwrap_or_default();
+    let token = token.trim();
+    if token.is_empty() {
+        request
+    } else {
+        request.set("Authorization", &format!("Bearer {token}"))
+    }
 }
 
 fn handle_response(

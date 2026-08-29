@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"crypto/subtle"
 	"net/http"
 	"os"
 	"strings"
@@ -15,6 +16,7 @@ func NewRouter(s *store.Storage) http.Handler {
 	// 创建处理器
 	messageHandler := NewMessageHandler(s)
 	consensusHandler := NewConsensusHandler(s)
+	graphHandler := NewConsensusGraphHandler(s)
 
 	// 消息 API
 	mux.HandleFunc("GET /api/messages", messageHandler.ListMessages)
@@ -27,6 +29,23 @@ func NewRouter(s *store.Storage) http.Handler {
 	mux.HandleFunc("PUT /api/consensuses/{id}", consensusHandler.UpdateConsensus)
 	mux.HandleFunc("POST /api/consensuses/confirm", consensusHandler.ConfirmConsensus)
 	mux.HandleFunc("POST /api/consensuses/deprecate", consensusHandler.DeprecateConsensus)
+	mux.HandleFunc("GET /api/consensuses/{id}/relations", graphHandler.ListConsensusRelations)
+
+	// 共识关系 API
+	mux.HandleFunc("POST /api/consensus-relations", graphHandler.CreateConsensusRelation)
+	mux.HandleFunc("GET /api/consensus-relations/{id}", graphHandler.GetConsensusRelation)
+	mux.HandleFunc("DELETE /api/consensus-relations/{id}", graphHandler.DeleteConsensusRelation)
+
+	// 共识图 API
+	mux.HandleFunc("POST /api/consensus-graphs", graphHandler.CreateConsensusGraph)
+	mux.HandleFunc("GET /api/consensus-graphs", graphHandler.ListConsensusGraphs)
+	mux.HandleFunc("GET /api/consensus-graphs/{id}", graphHandler.GetConsensusGraph)
+	mux.HandleFunc("PUT /api/consensus-graphs/{id}", graphHandler.UpdateConsensusGraph)
+	mux.HandleFunc("POST /api/consensus-graphs/{id}/nodes", graphHandler.AddConsensusGraphNode)
+	mux.HandleFunc("DELETE /api/consensus-graphs/{id}/nodes/{consensus_id}", graphHandler.RemoveConsensusGraphNode)
+	mux.HandleFunc("POST /api/consensus-graphs/{id}/relations", graphHandler.CreateConsensusGraphRelation)
+	mux.HandleFunc("POST /api/consensus-graphs/{id}/edges", graphHandler.AddConsensusGraphEdge)
+	mux.HandleFunc("DELETE /api/consensus-graphs/{id}/edges/{relation_id}", graphHandler.RemoveConsensusGraphEdge)
 
 	// 健康检查
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +53,37 @@ func NewRouter(s *store.Storage) http.Handler {
 		w.Write([]byte(`{"status": "ok"}`))
 	})
 
-	return withCORS(mux)
+	return withCORS(withAuth(mux))
+}
+
+func withAuth(next http.Handler) http.Handler {
+	token := strings.TrimSpace(os.Getenv("CONNECT_AUTH_TOKEN"))
+	if token == "" {
+		return next
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions || r.URL.Path == "/healthz" ||
+			!strings.HasPrefix(r.URL.Path, "/api/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if subtle.ConstantTimeCompare([]byte(bearerToken(r.Header.Get("Authorization"))), []byte(token)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="qtcloud-connect"`)
+			writeError(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func bearerToken(header string) string {
+	parts := strings.Fields(header)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		return ""
+	}
+	return parts[1]
 }
 
 func withCORS(next http.Handler) http.Handler {
@@ -45,7 +94,7 @@ func withCORS(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		}
 
 		if r.Method == http.MethodOptions && origin != "" {

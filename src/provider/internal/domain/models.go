@@ -27,3 +27,22 @@ type Relation struct {
 	MessageID   string `json:"message_id"`
 	ConsensusID string `json:"consensus_id"`
 }
+
+// ConsensusRelation 是共识之间的有向关系。
+type ConsensusRelation struct {
+	ID           string `json:"id"`
+	From         string `json:"from"`
+	To           string `json:"to"`
+	RelationType string `json:"relation_type"`
+}
+
+// ConsensusGraph 是以 DAG 组织共识节点和关系边的图。
+type ConsensusGraph struct {
+	ID          string               `json:"id"`
+	Name        string               `json:"name"`
+	Description string               `json:"description"`
+	Nodes       []*Consensus         `json:"nodes"`
+	Edges       []*ConsensusRelation `json:"edges"`
+	CreatedAt   time.Time            `json:"created_at"`
+	UpdatedAt   time.Time            `json:"updated_at"`
+}

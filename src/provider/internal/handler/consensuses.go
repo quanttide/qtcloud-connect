@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -15,6 +16,10 @@ import (
 )
 
 const maxConsensusPageSize = 100
+const (
+	maxConsensusTitleLength       = 200
+	maxConsensusDescriptionLength = 4000
+)
 
 // ConsensusHandler 是共识 API 处理器。
 type ConsensusHandler struct {
@@ -57,6 +62,10 @@ func (h *ConsensusHandler) CreateConsensus(w http.ResponseWriter, r *http.Reques
 	req.Description = strings.TrimSpace(req.Description)
 	if req.Title == "" {
 		writeError(w, "title is required", http.StatusBadRequest)
+		return
+	}
+	if len(req.Title) > maxConsensusTitleLength || len(req.Description) > maxConsensusDescriptionLength {
+		writeError(w, "title or description is too long", http.StatusBadRequest)
 		return
 	}
 
@@ -139,9 +148,17 @@ func (h *ConsensusHandler) UpdateConsensus(w http.ResponseWriter, r *http.Reques
 		writeError(w, "title is required", http.StatusBadRequest)
 		return
 	}
+	if len(req.Title) > maxConsensusTitleLength || len(req.Description) > maxConsensusDescriptionLength {
+		writeError(w, "title or description is too long", http.StatusBadRequest)
+		return
+	}
 
 	c, err := h.storage.UpdateConsensus(r.PathValue("id"), req.Title, req.Description)
 	if err != nil {
+		if errors.Is(err, store.ErrConsensusImmutable) {
+			writeError(w, "marked consensus is immutable", http.StatusConflict)
+			return
+		}
 		writeError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

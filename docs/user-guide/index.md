@@ -21,7 +21,7 @@ qtcloud-connect consensus list
 qtcloud-connect consensus show <consensus-id>
 ```
 
-Studio 默认打开“共识追溯图”，会显示 Provider 返回的共识列表。点击节点可以查看标题、描述、状态、创建时间和更新时间。
+Studio 默认打开“共识追溯图”，会显示 Provider 返回的共识图。点击节点可以查看标题、描述、状态、创建时间和更新时间；也可以新增共识、纳入已有共识、编辑提议中的共识，或为两个节点建立自定义类型的关联。
 
 ### 3. 更新状态
 
@@ -54,11 +54,11 @@ go run cmd/server/main.go
 
 ### Studio 看不到新增记录
 
-点击 Studio 右上角刷新按钮；如果仍不可见，先用 `qtcloud-connect consensus list` 确认 Provider 中是否存在记录。
+点击 Studio 右上角刷新按钮；如果仍不可见，先用 `qtcloud-connect consensus list` 确认 Provider 中是否存在记录。记录存在但不在图上时，使用“纳入已有共识”把它加入当前图。
 
 ### 公网部署是否可以直接开放 Provider
 
-不可以。v0.1 Provider 不内置登录和限流，必须放在认证、HTTPS、限流网关之后。
+不可以。Provider 可用 `CONNECT_AUTH_TOKEN` 做服务级 Bearer 校验，但公网环境仍必须放在用户级认证、HTTPS、限流网关之后。
 
 ## 后续路线
 

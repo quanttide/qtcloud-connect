@@ -19,15 +19,17 @@ qtcloud-connect/
 
 v0.1 当前目标是打通 `Provider -> CLI -> Studio` 的最小闭环：
 
-- Provider 使用 Go + SQLite 暴露 `/api/consensuses`，保存共识标题、描述、状态和时间戳。
+- Provider 使用 Go + SQLite 暴露共识、关系和共识图 API，保存共识标题、描述、状态、时间戳以及可扩展的 DAG 链路。
 - CLI 使用 `qtcloud-connect consensus` 创建、查看、更新、确认和废弃共识。
-- Studio 默认打开共识追溯页面，从 Provider 读取记录并展示 Message -> Consensus -> Memo 的工作流。
+- Studio 默认打开可编辑的共识追溯页面，从 Provider 读取图谱，支持新增/编辑共识、拖动节点、建立任意类型的 DAG 关联，以及移出节点或关联。
 
 ### 本地启动
 
 ```bash
 # Provider
 cd src/provider
+# 可选：私有部署联调时启用 Provider Bearer token
+# export CONNECT_AUTH_TOKEN=replace-with-secret
 go run cmd/server/main.go
 
 # CLI 写入一条真实共识
@@ -59,7 +61,19 @@ qtcloud-connect consensus confirm <consensus-id>
 qtcloud-connect consensus deprecate <consensus-id>
 ```
 
-`--endpoint` 可覆盖默认 Provider 地址 `http://localhost:8000/api`。
+`--endpoint` 可覆盖默认 Provider 地址 `http://localhost:8000/api`。如果 Provider 配置了 `CONNECT_AUTH_TOKEN`，CLI 会自动读取同名环境变量并发送 Bearer token。Studio 是静态 Web 产物，不能把服务令牌编入浏览器；公网部署应由认证网关或反向代理完成用户认证并代表 Studio 访问 Provider。
+
+### 共识图编辑
+
+Studio 首次连接到没有图谱的 Provider 时，会创建一个“共识追溯图”，并把已有共识纳入其中。之后的编辑都通过 Provider 持久化：
+
+- `POST /api/consensus-graphs`、`GET /api/consensus-graphs`、`GET /api/consensus-graphs/{id}`
+- `POST /api/consensus-graphs/{id}/nodes`、`DELETE /api/consensus-graphs/{id}/nodes/{consensus_id}`
+- `POST /api/consensus-relations`、`GET /api/consensus-relations/{id}`、`DELETE /api/consensus-relations/{id}`
+- `POST /api/consensus-graphs/{id}/relations`
+- `POST /api/consensus-graphs/{id}/edges`、`DELETE /api/consensus-graphs/{id}/edges/{relation_id}`
+
+关系类型是字符串而不是固定枚举，可以使用“前置条件”“支持”“反对”“补充”或团队自定义语义。Provider 在把关系加入图时校验两个端点都属于当前图，并拒绝自环和成环关系。
 
 ### 发送通道
 

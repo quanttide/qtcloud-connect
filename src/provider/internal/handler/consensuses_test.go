@@ -476,3 +476,84 @@ func TestConsensusGraphCanBeEditedWithArbitraryDAGLinks(t *testing.T) {
 		)
 	}
 }
+
+func TestConsensusGraphNodePositionPersists(t *testing.T) {
+	router := newTestRouter(t)
+
+	created := doJSON(t, router, http.MethodPost, "/api/consensuses", map[string]string{
+		"title": "拖动后的共识节点",
+	})
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create consensus status = %d, body = %s", created.Code, created.Body.String())
+	}
+	var consensus struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &consensus); err != nil {
+		t.Fatalf("decode consensus: %v", err)
+	}
+
+	graphCreated := doJSON(t, router, http.MethodPost, "/api/consensus-graphs", map[string]string{
+		"name": "拖拽持久化",
+	})
+	if graphCreated.Code != http.StatusCreated {
+		t.Fatalf("create graph status = %d, body = %s", graphCreated.Code, graphCreated.Body.String())
+	}
+	var graph struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(graphCreated.Body.Bytes(), &graph); err != nil {
+		t.Fatalf("decode graph: %v", err)
+	}
+
+	added := doJSON(
+		t,
+		router,
+		http.MethodPost,
+		"/api/consensus-graphs/"+graph.ID+"/nodes",
+		map[string]string{"consensus_id": consensus.ID},
+	)
+	if added.Code != http.StatusOK {
+		t.Fatalf("add graph node status = %d, body = %s", added.Code, added.Body.String())
+	}
+
+	position := doJSON(
+		t,
+		router,
+		http.MethodPut,
+		"/api/consensus-graphs/"+graph.ID+"/nodes/"+consensus.ID+"/position",
+		map[string]float64{"x": 318.5, "y": 204.25},
+	)
+	if position.Code != http.StatusOK {
+		t.Fatalf("update graph node position status = %d, body = %s", position.Code, position.Body.String())
+	}
+
+	detail := doJSON(t, router, http.MethodGet, "/api/consensus-graphs/"+graph.ID, nil)
+	if detail.Code != http.StatusOK {
+		t.Fatalf("get graph status = %d, body = %s", detail.Code, detail.Body.String())
+	}
+	var graphDetail struct {
+		NodePositions map[string]struct {
+			X float64 `json:"x"`
+			Y float64 `json:"y"`
+		} `json:"node_positions"`
+	}
+	if err := json.Unmarshal(detail.Body.Bytes(), &graphDetail); err != nil {
+		t.Fatalf("decode graph detail: %v", err)
+	}
+	got, ok := graphDetail.NodePositions[consensus.ID]
+	if !ok || got.X != 318.5 || got.Y != 204.25 {
+		t.Fatalf("persisted node position = %+v", graphDetail.NodePositions)
+	}
+
+	invalid := doJSON(
+		t,
+		router,
+		http.MethodPut,
+		"/api/consensus-graphs/"+graph.ID+"/nodes/"+consensus.ID+"/position",
+		map[string]float64{"x": 100001, "y": 0},
+	)
+	if invalid.Code != http.StatusBadRequest {
+		t.Fatalf("invalid graph node position status = %d, body = %s", invalid.Code, invalid.Body.String())
+	}
+}

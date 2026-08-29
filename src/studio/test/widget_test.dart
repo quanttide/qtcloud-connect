@@ -124,12 +124,52 @@ void main() {
     expect(find.text('共识追溯原型'), findsOneWidget);
     expect(find.text('发现支付超时问题'), findsOneWidget);
   });
+
+  testWidgets('dragging a node persists its graph position', (tester) async {
+    const graph = ConsensusGraph(
+      id: 'drag-graph',
+      name: '拖拽持久化',
+      description: '节点坐标需要在切换图谱后保留。',
+      nodes: [
+        Consensus(
+          id: 'drag-node',
+          title: '可拖动节点',
+          description: '拖动结束后保存坐标。',
+          createdAt: '2026-08-29T10:00:00Z',
+          updatedAt: '2026-08-29T10:00:00Z',
+        ),
+      ],
+      edges: [],
+      createdAt: '2026-08-29T10:00:00Z',
+      updatedAt: '2026-08-29T10:00:00Z',
+    );
+    final api = _GraphApiClient(const [graph]);
+
+    await tester.pumpWidget(
+      MaterialApp(home: ConsensusTraceabilityScreen(apiClient: api)),
+    );
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('可拖动节点')),
+    );
+    await gesture.moveBy(const Offset(120, 64));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(api.positionUpdates, hasLength(1));
+    expect(api.positionUpdates.single.graphId, 'drag-graph');
+    expect(api.positionUpdates.single.consensusId, 'drag-node');
+    expect(api.positionUpdates.single.x, greaterThan(72));
+    expect(api.positionUpdates.single.y, greaterThan(72));
+  });
 }
 
 class _GraphApiClient extends ConsensusApiClient {
-  const _GraphApiClient(this.graphs);
+  _GraphApiClient(this.graphs);
 
   final List<ConsensusGraph> graphs;
+  final List<_NodePositionUpdate> positionUpdates = [];
 
   @override
   Future<List<ConsensusGraph>> listGraphs() async => graphs;
@@ -137,4 +177,36 @@ class _GraphApiClient extends ConsensusApiClient {
   @override
   Future<ConsensusGraph> getGraph(String id) async =>
       graphs.singleWhere((graph) => graph.id == id);
+
+  @override
+  Future<ConsensusGraph> updateNodePosition({
+    required String graphId,
+    required String consensusId,
+    required double x,
+    required double y,
+  }) async {
+    positionUpdates.add(
+      _NodePositionUpdate(
+        graphId: graphId,
+        consensusId: consensusId,
+        x: x,
+        y: y,
+      ),
+    );
+    return graphs.singleWhere((graph) => graph.id == graphId);
+  }
+}
+
+class _NodePositionUpdate {
+  const _NodePositionUpdate({
+    required this.graphId,
+    required this.consensusId,
+    required this.x,
+    required this.y,
+  });
+
+  final String graphId;
+  final String consensusId;
+  final double x;
+  final double y;
 }

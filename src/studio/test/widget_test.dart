@@ -1,30 +1,39 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:qtcloud_connect_studio/main.dart';
+import 'package:qtcloud_connect_studio/models/consensus.dart';
+import 'package:qtcloud_connect_studio/screens/consensus_traceability_screen.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  testWidgets('app opens on consensus traceability surface', (tester) async {
     await tester.pumpWidget(const QtCloudConnectApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('共识追溯图'), findsOneWidget);
+    expect(find.text('消息'), findsOneWidget);
+    expect(find.text('备忘'), findsOneWidget);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('consensus screen renders provider data', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ConsensusTraceabilityScreen(
+          loadConsensuses: () async => const [
+            Consensus(
+              id: 'c1',
+              title: 'CLI 可以记录真实共识',
+              description: 'Provider 持久化后 Studio 展示。',
+              createdAt: '2026-08-29T10:00:00Z',
+              updatedAt: '2026-08-29T10:00:00Z',
+            ),
+          ],
+        ),
+      ),
+    );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await tester.pumpAndSettle();
+
+    expect(find.text('CLI 可以记录真实共识'), findsOneWidget);
+    expect(find.text('Provider 持久化后 Studio 展示。'), findsOneWidget);
+    expect(find.text('共识总数'), findsOneWidget);
   });
 }

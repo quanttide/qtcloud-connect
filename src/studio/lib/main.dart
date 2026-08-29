@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/whiteboard_screen.dart';
+import 'screens/consensus_traceability_screen.dart';
 
 void main() {
   runApp(const QtCloudConnectApp());
@@ -16,7 +16,7 @@ class QtCloudConnectApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const WhiteboardScreen(),
+      home: const ConsensusTraceabilityScreen(),
     );
   }
 }

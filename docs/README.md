@@ -2,7 +2,7 @@
 
 ## 产品简介
 
-量潮沟通云（qtcloud-connect）是一款智能沟通管理工具，将日常碎片化的交流讨论和灵机一动进行整理和提取，通过 AI 识别关键要点并生成便签；在白板模式中对便签进行逻辑梳理和关联分析，自动删除重复冗杂信息保留精华；最后将整理好的备忘录转化为结构化的沟通成果或进一步喂给 AI 产出更高质量的文档。
+量潮沟通云（qtcloud-connect）是一款沟通管理工具，当前 v0.1 聚焦把团队讨论沉淀为可追溯共识：CLI 手动记录，Provider 持久化，Studio 展示 Message -> Consensus -> Memo 的共识页面。
 
 ## 文档结构
 
@@ -10,25 +10,22 @@
 
 ### [用户指南](user-guide/README.md)
 面向最终用户的操作文档，帮助用户了解和使用系统功能。
-- 快速开始指南
-- 功能使用说明
-- 常见问题解答
-- 操作手册
+- CLI 记录共识
+- Studio 查看共识
+- 常见问题
 
 ### [开发者指南](dev-guide/README.md)
-面向开发人员的技術文档，帮助理解系统架构和进行二次开发。
-- 架构设计文档
-- 开发环境搭建
-- 编码规范和最佳实践
-- 部署和运维指南
-- 贡献指南
+面向开发人员的技术文档，帮助理解当前 Go Provider、Rust CLI、Flutter Studio 的开发和发布前检查。
+- 本地开发命令
+- 测试和构建命令
+- 发布与部署注意事项
 
 ### [API 参考文档](api-references/README.md)
 详细的 API 接口文档，供开发人员调用和集成。
 - Provider API 接口文档
-- CLI 命令参考
-- 数据模型定义
-- 认证授权机制
+- 共识 API 接口文档
+- CLI 共识命令示例
+- Studio 对接方式
 
 ## 快速导航
 
@@ -36,38 +33,28 @@
 
 #### 业务用户
 如果您是使用系统的业务用户，建议从以下文档开始：
-1. [用户指南 - 快速开始](user-guide/getting-started.md)
-2. [用户指南 - 功能说明](user-guide/features.md)
-3. [用户指南 - 常见问题](user-guide/faq.md)
+1. [用户指南](user-guide/README.md)
+2. [用户指南 - 详细内容](user-guide/index.md)
+3. [API 参考 - 共识 API](api-references/provider.md#共识-api)
 
 #### 开发人员
 如果您是参与开发的工程师，建议从以下文档开始：
-1. [开发者指南 - 架构设计](dev-guide/architecture.md)
-2. [开发者指南 - 开发环境](dev-guide/setup.md)
-3. [开发者指南 - 贡献指南](dev-guide/contributing.md)
+1. [开发者指南](dev-guide/README.md)
+2. [开发者指南 - 详细内容](dev-guide/index.md)
+3. [API 参考文档 - Provider API](api-references/provider.md)
 
 #### 第三方集成者
 如果您需要与系统集成，建议从以下文档开始：
-1. [API 参考文档 - Provider API](api-references/provider-api.md)
-2. [API 参考文档 - 认证授权](api-references/authentication.md)
-3. [API 参考文档 - 数据模型](api-references/data-models.md)
+1. [API 参考文档 - Provider API](api-references/provider.md)
+2. [开发者指南 - CLI 命令](dev-guide/index.md#cli)
+3. [开发者指南 - Studio 运行](dev-guide/index.md#studio)
 
 ### 按功能导航
 
-#### 对话管理
-- [用户指南 - 对话功能](user-guide/features.md#对话管理)
-- [API 参考 - 对话 API](api-references/provider-api.md#对话管理)
-- [开发者指南 - 对话模块](dev-guide/architecture.md#对话模块)
-
-#### 白板协作
-- [用户指南 - 白板功能](user-guide/features.md#白板协作)
-- [API 参考 - 白板 API](api-references/provider-api.md#白板管理)
-- [开发者指南 - 白板模块](dev-guide/architecture.md#白板模块)
-
-#### 数据分析
-- [用户指南 - 数据分析](user-guide/features.md#数据分析)
-- [API 参考 - 分析 API](api-references/provider-api.md#数据分析)
-- [开发者指南 - 分析模块](dev-guide/architecture.md#分析模块)
+#### 共识追溯
+- [API 参考 - 共识 API](api-references/provider.md#共识-api)
+- [开发者指南 - CLI](dev-guide/index.md#cli)
+- [开发者指南 - Studio](dev-guide/index.md#studio)
 
 ## 系统要求
 
@@ -77,10 +64,9 @@
 - 支持 JavaScript 和 Local Storage
 
 ### 开发端
-- Python 3.12+
+- Go 1.26+
 - Rust 1.70+
-- Flutter 3.10+
-- Node.js 18+（用于文档工具）
+- Flutter / Dart SDK
 
 ## 获取帮助
 
@@ -117,8 +103,8 @@
 - 包含示例代码和截图
 
 ### 更新频率
-- 用户指南：每月更新一次
-- 开发者指南：每次版本发布后更新
+- 用户指南：功能可用性变化后更新
+- 开发者指南：组件技术栈、运行方式或发布流程变化后更新
 - API 参考：每次 API 变更后更新
 
 ## 版本历史
@@ -141,7 +127,7 @@
 - 产品档案：[quanttide-profile-of-product-development](https://github.com/quanttide/quanttide-profile-of-product-development)
 
 ### 外部文档
-- FastAPI 文档：[fastapi.tiangolo.com](https://fastapi.tiangolo.com/)
+- Go 文档：[go.dev/doc](https://go.dev/doc/)
 - Flutter 文档：[flutter.dev](https://flutter.dev/)
 - Rust 文档：[doc.rust-lang.org](https://doc.rust-lang.org/)
 
@@ -152,5 +138,5 @@
 
 ---
 
-*最后更新时间：2026-08-28*
-*文档版本：v1.0.0*
+*最后更新时间：2026-08-29*
+*文档版本：v0.1 draft*

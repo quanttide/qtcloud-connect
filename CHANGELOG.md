@@ -7,6 +7,22 @@
 
 > CLI scope 变更见 `src/cli/CHANGELOG.md`（对应 `cli/*` 版本线）。
 
+## [Unreleased]
+
+### Added
+
+- Provider: 新增共识创建、列表、详情、更新、确认和废弃接口，并补充 SQLite 存储测试。
+- Studio: 默认入口切换为共识追溯页面，支持从 Provider 读取共识列表。
+
+### Changed
+
+- 文档更新为当前 Go Provider、Rust CLI、Flutter Studio 的真实运行方式。
+
+### Fixed
+
+- Provider 首次启动时自动创建默认 SQLite 数据目录。
+- Provider 共识列表分页参数过大时不再触发切片越界 panic。
+
 ## [0.0.3] - 2026-08-28
 
 ### Changed

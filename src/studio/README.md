@@ -1,16 +1,21 @@
-# qtcloud_connect
+# qtcloud-connect Studio
 
-A new Flutter project.
+Flutter 工作台，当前默认入口是共识追溯页面。
 
-## Getting Started
+## 本地开发
 
-This project is a starting point for a Flutter application.
+```bash
+flutter pub get
+flutter run -d chrome --dart-define=CONNECT_PROVIDER_ENDPOINT=http://localhost:8000/api
+```
 
-A few resources to get you started if this is your first Flutter project:
+`CONNECT_PROVIDER_ENDPOINT` 默认值为 `http://localhost:8000/api`。生产环境部署到
+`https://studio.connect.cloud.quanttide.com` 时，需要确保 Provider 的 CORS 白名单包含该来源。
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## 验证
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter analyze
+flutter test
+flutter build web --release --base-href /
+```

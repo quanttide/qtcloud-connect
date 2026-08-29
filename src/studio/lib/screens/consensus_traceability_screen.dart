@@ -1018,65 +1018,114 @@ class _GraphCanvasState extends State<_GraphCanvas> {
               top: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
           ),
-          child: ClipRect(
-            child: InteractiveViewer(
-              transformationController: _transformationController,
-              minScale: 0.55,
-              maxScale: 1.8,
-              boundaryMargin: EdgeInsets.zero,
-              panEnabled: _draggingNodeID == null,
-              alignment: Alignment.topLeft,
-              clipBehavior: Clip.hardEdge,
-              constrained: false,
-              child: ColoredBox(
-                color: theme.colorScheme.surface,
-                child: SizedBox(
-                  width: canvasSize.width,
-                  height: canvasSize.height,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: _GraphEdgesPainter(
-                            graph: widget.graph,
-                            positions: positions,
-                            selectedId: widget.selectedId,
-                            labelBackgroundColor: theme.colorScheme.surface,
-                          ),
-                        ),
-                      ),
-                      for (final node in widget.graph.nodes)
-                        Positioned(
-                          left: positions[node.id]!.dx,
-                          top: positions[node.id]!.dy,
-                          width: _GraphCanvas.nodeSize.width,
-                          height: _GraphCanvas.nodeSize.height,
-                          child: _DraggableGraphNode(
-                            key: ValueKey(node.id),
-                            consensus: node,
-                            isSelected: widget.selectedId == node.id,
-                            onTap: () => widget.onSelect(node.id),
-                            onPointerDown: (event) => _startNodeDrag(
-                              node.id,
-                              event,
-                              positions[node.id]!,
+          child: Stack(
+            children: [
+              ClipRect(
+                child: InteractiveViewer(
+                  transformationController: _transformationController,
+                  minScale: 0.2,
+                  maxScale: 4.0,
+                  boundaryMargin: const EdgeInsets.all(1600),
+                  panEnabled: _draggingNodeID == null,
+                  alignment: Alignment.topLeft,
+                  clipBehavior: Clip.hardEdge,
+                  constrained: false,
+                  child: ColoredBox(
+                    color: theme.colorScheme.surface,
+                    child: SizedBox(
+                      width: canvasSize.width,
+                      height: canvasSize.height,
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: _GraphEdgesPainter(
+                                graph: widget.graph,
+                                positions: positions,
+                                selectedId: widget.selectedId,
+                                labelBackgroundColor: theme.colorScheme.surface,
+                              ),
                             ),
-                            onPointerMove: (event) =>
-                                _updateNodeDrag(node.id, event, canvasSize),
-                            onPointerUp: (event) =>
-                                _endNodeDrag(node.id, event),
-                            onPointerCancel: () => _cancelNodeDrag(node.id),
                           ),
-                        ),
+                          for (final node in widget.graph.nodes)
+                            Positioned(
+                              left: positions[node.id]!.dx,
+                              top: positions[node.id]!.dy,
+                              width: _GraphCanvas.nodeSize.width,
+                              height: _GraphCanvas.nodeSize.height,
+                              child: _DraggableGraphNode(
+                                key: ValueKey(node.id),
+                                consensus: node,
+                                isSelected: widget.selectedId == node.id,
+                                onTap: () => widget.onSelect(node.id),
+                                onPointerDown: (event) => _startNodeDrag(
+                                  node.id,
+                                  event,
+                                  positions[node.id]!,
+                                ),
+                                onPointerMove: (event) =>
+                                    _updateNodeDrag(node.id, event, canvasSize),
+                                onPointerUp: (event) =>
+                                    _endNodeDrag(node.id, event),
+                                onPointerCancel: () => _cancelNodeDrag(node.id),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: Material(
+                  color: theme.colorScheme.surface,
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(color: theme.colorScheme.outlineVariant),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: '放大',
+                        onPressed: () => _zoomBy(1.25),
+                        icon: const Icon(Icons.add),
+                      ),
+                      IconButton(
+                        tooltip: '复位缩放',
+                        onPressed: _resetZoom,
+                        icon: const Icon(Icons.center_focus_strong),
+                      ),
+                      IconButton(
+                        tooltip: '缩小',
+                        onPressed: () => _zoomBy(0.8),
+                        icon: const Icon(Icons.remove),
+                      ),
                     ],
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         );
       },
     );
+  }
+
+  void _zoomBy(double factor) {
+    final currentScale = _transformationController.value.getMaxScaleOnAxis();
+    final nextScale = (currentScale * factor).clamp(0.2, 4.0).toDouble();
+    final scaleRatio = nextScale / currentScale;
+    _transformationController.value = Matrix4.copy(
+      _transformationController.value,
+    )..scale(scaleRatio);
+  }
+
+  void _resetZoom() {
+    _transformationController.value = Matrix4.identity();
   }
 
   void _startNodeDrag(String id, PointerDownEvent event, Offset nodePosition) {

@@ -965,7 +965,7 @@ class _GraphCanvas extends StatefulWidget {
 
   static const nodeSize = Size(196, 108);
   static const minimumCanvasSize = Size(1200, 760);
-  static const dragOverflow = 1600.0;
+  static const canvasPadding = 24.0;
 
   final ConsensusGraph graph;
   final String? selectedId;
@@ -997,16 +997,33 @@ class _GraphCanvasState extends State<_GraphCanvas> {
     final theme = Theme.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final positions = _layoutNodes(widget.graph);
-        final rightEdge = positions.values.fold(
+        final logicalPositions = _layoutNodes(widget.graph);
+        final canvasOrigin = _canvasOrigin(logicalPositions);
+        final positions = {
+          for (final entry in logicalPositions.entries)
+            entry.key: entry.value + canvasOrigin,
+        };
+        final rightEdge = logicalPositions.values.fold(
           _GraphCanvas.minimumCanvasSize.width,
           (value, position) =>
-              math.max(value, position.dx + _GraphCanvas.nodeSize.width + 24),
+              math.max(
+                value,
+                position.dx +
+                    canvasOrigin.dx +
+                    _GraphCanvas.nodeSize.width +
+                    _GraphCanvas.canvasPadding,
+              ),
         );
-        final bottomEdge = positions.values.fold(
+        final bottomEdge = logicalPositions.values.fold(
           _GraphCanvas.minimumCanvasSize.height,
           (value, position) =>
-              math.max(value, position.dy + _GraphCanvas.nodeSize.height + 24),
+              math.max(
+                value,
+                position.dy +
+                    canvasOrigin.dy +
+                    _GraphCanvas.nodeSize.height +
+                    _GraphCanvas.canvasPadding,
+              ),
         );
         final canvasSize = Size(
           math.max(rightEdge, constraints.maxWidth).toDouble(),
@@ -1062,10 +1079,10 @@ class _GraphCanvasState extends State<_GraphCanvas> {
                                 onPointerDown: (event) => _startNodeDrag(
                                   node.id,
                                   event,
-                                  positions[node.id]!,
+                                  logicalPositions[node.id]!,
                                 ),
                                 onPointerMove: (event) =>
-                                    _updateNodeDrag(node.id, event, canvasSize),
+                                    _updateNodeDrag(node.id, event),
                                 onPointerUp: (event) =>
                                     _endNodeDrag(node.id, event),
                                 onPointerCancel: () => _cancelNodeDrag(node.id),
@@ -1129,11 +1146,11 @@ class _GraphCanvasState extends State<_GraphCanvas> {
     _transformationController.value = Matrix4.identity();
   }
 
-  void _startNodeDrag(String id, PointerDownEvent event, Offset nodePosition) {
+  void _startNodeDrag(String id, PointerDownEvent event, Offset logicalPosition) {
     if (_draggingPointer != null) {
       return;
     }
-    _dragPositions[id] = nodePosition;
+    _dragPositions[id] = logicalPosition;
     setState(() {
       _draggingNodeID = id;
       _draggingPointer = event.pointer;
@@ -1141,7 +1158,7 @@ class _GraphCanvasState extends State<_GraphCanvas> {
     });
   }
 
-  void _updateNodeDrag(String id, PointerMoveEvent event, Size canvasSize) {
+  void _updateNodeDrag(String id, PointerMoveEvent event) {
     if (_draggingNodeID != id || _draggingPointer != event.pointer) {
       return;
     }
@@ -1153,10 +1170,7 @@ class _GraphCanvasState extends State<_GraphCanvas> {
       return;
     }
     final scale = _transformationController.value.getMaxScaleOnAxis();
-    final position = _clampNodePosition(
-      currentPosition + event.delta / scale,
-      canvasSize,
-    );
+    final position = currentPosition + event.delta / scale;
     setState(() {
       _dragPositions[id] = position;
       _nodeWasMoved = true;
@@ -1191,27 +1205,25 @@ class _GraphCanvasState extends State<_GraphCanvas> {
     }
   }
 
-  Offset _clampNodePosition(Offset position, Size canvasSize) {
-    const padding = 24.0;
+  Offset _canvasOrigin(Map<String, Offset> positions) {
+    if (positions.isEmpty) {
+      return Offset.zero;
+    }
+    final minimumX = positions.values.fold<double>(
+      0,
+      (value, position) => math.min(value, position.dx),
+    );
+    final minimumY = positions.values.fold<double>(
+      0,
+      (value, position) => math.min(value, position.dy),
+    );
     return Offset(
-      position.dx
-          .clamp(
-            padding,
-            canvasSize.width +
-                _GraphCanvas.dragOverflow -
-                _GraphCanvas.nodeSize.width -
-                padding,
-          )
-          .toDouble(),
-      position.dy
-          .clamp(
-            padding,
-            canvasSize.height +
-                _GraphCanvas.dragOverflow -
-                _GraphCanvas.nodeSize.height -
-                padding,
-          )
-          .toDouble(),
+      minimumX < _GraphCanvas.canvasPadding
+          ? _GraphCanvas.canvasPadding - minimumX
+          : 0,
+      minimumY < _GraphCanvas.canvasPadding
+          ? _GraphCanvas.canvasPadding - minimumY
+          : 0,
     );
   }
 

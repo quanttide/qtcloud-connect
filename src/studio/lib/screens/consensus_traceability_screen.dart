@@ -965,6 +965,7 @@ class _GraphCanvas extends StatefulWidget {
 
   static const nodeSize = Size(196, 108);
   static const minimumCanvasSize = Size(1200, 760);
+  static const dragOverflow = 1600.0;
 
   final ConsensusGraph graph;
   final String? selectedId;
@@ -1196,13 +1197,19 @@ class _GraphCanvasState extends State<_GraphCanvas> {
       position.dx
           .clamp(
             padding,
-            canvasSize.width - _GraphCanvas.nodeSize.width - padding,
+            canvasSize.width +
+                _GraphCanvas.dragOverflow -
+                _GraphCanvas.nodeSize.width -
+                padding,
           )
           .toDouble(),
       position.dy
           .clamp(
             padding,
-            canvasSize.height - _GraphCanvas.nodeSize.height - padding,
+            canvasSize.height +
+                _GraphCanvas.dragOverflow -
+                _GraphCanvas.nodeSize.height -
+                padding,
           )
           .toDouble(),
     );

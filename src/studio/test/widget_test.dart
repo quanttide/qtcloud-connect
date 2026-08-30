@@ -283,6 +283,45 @@ void main() {
     },
   );
 
+  testWidgets(
+    'dragging a node can expand the workspace beyond the initial canvas',
+    (tester) async {
+      const graph = ConsensusGraph(
+        id: 'expand-graph',
+        name: '可扩展画布',
+        description: '节点可以移动到初始画布边界之外。',
+        nodes: [
+          Consensus(
+            id: 'expand-node',
+            title: '可扩展节点',
+            description: '拖动后应允许画布扩展。',
+            createdAt: '2026-08-29T10:00:00Z',
+            updatedAt: '2026-08-29T10:00:00Z',
+          ),
+        ],
+        edges: [],
+        createdAt: '2026-08-29T10:00:00Z',
+        updatedAt: '2026-08-29T10:00:00Z',
+      );
+      final api = _GraphApiClient(const [graph]);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ConsensusTraceabilityScreen(apiClient: api)),
+      );
+      await tester.pumpAndSettle();
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('可扩展节点')),
+      );
+      await gesture.moveBy(const Offset(1600, 0));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(api.positionUpdates, hasLength(1));
+      expect(api.positionUpdates.single.x, greaterThan(1200));
+    },
+  );
+
   testWidgets('failed position save restores the previous visible position', (
     tester,
   ) async {

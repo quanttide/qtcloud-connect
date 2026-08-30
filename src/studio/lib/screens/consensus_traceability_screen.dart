@@ -13,12 +13,12 @@ class ConsensusTraceabilityScreen extends StatefulWidget {
     super.key,
     this.loadConsensuses,
     this.loadGraph,
-    this.apiClient = const ConsensusApiClient(),
+    this.apiClient,
   });
 
   final ConsensusLoader? loadConsensuses;
   final ConsensusGraphLoader? loadGraph;
-  final ConsensusApiClient apiClient;
+  final ConsensusApiClient? apiClient;
 
   @override
   State<ConsensusTraceabilityScreen> createState() =>
@@ -37,6 +37,7 @@ class _ConsensusTraceabilityScreenState
   bool _isSaving = false;
   final Map<String, Map<String, Offset>> _nodePositionsByGraph = {};
   final Map<String, Future<void>> _nodePositionSaveTails = {};
+  late final ConsensusApiClient _apiClient;
 
   bool get _isLocal =>
       widget.loadConsensuses != null || widget.loadGraph != null;
@@ -44,6 +45,7 @@ class _ConsensusTraceabilityScreenState
   @override
   void initState() {
     super.initState();
+    _apiClient = widget.apiClient ?? ConsensusApiClient();
     _graphFuture = _loadInitialGraph();
     _cacheLoadedGraph(_graphFuture);
   }
@@ -55,21 +57,13 @@ class _ConsensusTraceabilityScreenState
         child: Row(
           children: [
             NavigationRail(
-              selectedIndex: 1,
+              selectedIndex: 0,
               labelType: NavigationRailLabelType.all,
               destinations: const [
-                NavigationRailDestination(
-                  icon: Icon(Icons.chat_bubble_outline),
-                  label: Text('消息'),
-                ),
                 NavigationRailDestination(
                   icon: Icon(Icons.account_tree_outlined),
                   selectedIcon: Icon(Icons.account_tree),
                   label: Text('共识'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.description_outlined),
-                  label: Text('备忘'),
                 ),
               ],
             ),
@@ -122,7 +116,7 @@ class _ConsensusTraceabilityScreenState
       return _localGraph(nodes: await widget.loadConsensuses!());
     }
 
-    final graphs = await widget.apiClient.listGraphs();
+    final graphs = await _apiClient.listGraphs();
     _graphs = graphs;
     if (graphs.isNotEmpty) {
       final selected = graphs
@@ -130,19 +124,19 @@ class _ConsensusTraceabilityScreenState
           .firstOrNull;
       final graph = selected ?? graphs.first;
       _selectedGraphId = graph.id;
-      return widget.apiClient.getGraph(graph.id);
+      return _apiClient.getGraph(graph.id);
     }
 
-    final graph = await widget.apiClient.createGraph(
+    final graph = await _apiClient.createGraph(
       name: '共识追溯图',
       description: '团队共识的可编辑决策网络。',
     );
     _graphs = [graph];
     _selectedGraphId = graph.id;
-    final consensuses = await widget.apiClient.listConsensuses();
+    final consensuses = await _apiClient.listConsensuses();
     var current = graph;
     for (final consensus in consensuses) {
-      current = await widget.apiClient.addNode(
+      current = await _apiClient.addNode(
         graphId: current.id,
         consensusId: consensus.id,
       );
@@ -164,7 +158,7 @@ class _ConsensusTraceabilityScreenState
       _error = null;
     });
     try {
-      final graph = await widget.apiClient.createGraph(
+      final graph = await _apiClient.createGraph(
         name: draft.name,
         description: draft.description,
       );
@@ -196,7 +190,7 @@ class _ConsensusTraceabilityScreenState
     if (_isLocal || _isSaving || graphId == _selectedGraphId) {
       return;
     }
-    final future = widget.apiClient.getGraph(graphId);
+    final future = _apiClient.getGraph(graphId);
     setState(() {
       _selectedGraphId = graphId;
       _graphRequestVersion++;
@@ -283,7 +277,7 @@ class _ConsensusTraceabilityScreenState
       // A later drag should still be able to persist after a failed save.
     }
     try {
-      await widget.apiClient.updateNodePosition(
+      await _apiClient.updateNodePosition(
         graphId: graphID,
         consensusId: consensusID,
         x: position.dx,
@@ -337,11 +331,11 @@ class _ConsensusTraceabilityScreenState
           updatedAt: now,
         );
       }
-      final consensus = await widget.apiClient.createConsensus(
+      final consensus = await _apiClient.createConsensus(
         title: draft.title,
         description: draft.description,
       );
-      return widget.apiClient.addNode(
+      return _apiClient.addNode(
         graphId: graph.id,
         consensusId: consensus.id,
       );
@@ -356,7 +350,7 @@ class _ConsensusTraceabilityScreenState
       }
       final available = _isLocal
           ? const <Consensus>[]
-          : (await widget.apiClient.listConsensuses())
+          : (await _apiClient.listConsensuses())
                 .where(
                   (consensus) =>
                       !graph.nodes.any((node) => node.id == consensus.id),
@@ -377,7 +371,7 @@ class _ConsensusTraceabilityScreenState
         return;
       }
       await _runMutation(
-        () => widget.apiClient.addNode(
+        () => _apiClient.addNode(
           graphId: graph.id,
           consensusId: consensusId,
         ),
@@ -417,7 +411,7 @@ class _ConsensusTraceabilityScreenState
           updatedAt: now,
         );
       }
-      final updated = await widget.apiClient.updateConsensus(
+      final updated = await _apiClient.updateConsensus(
         id: selected.id,
         title: draft.title,
         description: draft.description,
@@ -460,7 +454,7 @@ class _ConsensusTraceabilityScreenState
           updatedAt: now,
         );
       }
-      return widget.apiClient.createGraphRelation(
+      return _apiClient.createGraphRelation(
         graphId: current.id,
         from: draft.from,
         to: draft.to,
@@ -494,7 +488,7 @@ class _ConsensusTraceabilityScreenState
           updatedAt: now,
         );
       }
-      return widget.apiClient.removeNode(
+      return _apiClient.removeNode(
         graphId: graph.id,
         consensusId: selected.id,
       );
@@ -519,7 +513,7 @@ class _ConsensusTraceabilityScreenState
           updatedAt: DateTime.now().toUtc().toIso8601String(),
         );
       }
-      return widget.apiClient.removeEdge(
+      return _apiClient.removeEdge(
         graphId: graph.id,
         relationId: edge.id,
       );

@@ -13,7 +13,7 @@
 
 - **基础 URL**：`http://localhost:8000/api`
 - **实现**：Go + SQLite
-- **认证**：v0.1 Provider 尚未内置认证；公网部署必须放在认证、HTTPS、限流网关之后
+- **认证**：v0.1 不提供用户级登录，但支持可选服务级 Bearer Token；公网部署仍必须放在认证、HTTPS、限流网关之后
 - **CORS**：默认允许 `https://studio.connect.cloud.quanttide.com` 和本地开发端口
 
 ### 消息管理

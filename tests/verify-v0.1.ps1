@@ -8,6 +8,7 @@ $ErrorActionPreference = 'Stop'
 $AppRoot = Split-Path -Parent $PSScriptRoot
 $ProviderDir = Join-Path $AppRoot 'src/provider'
 $CliDir = Join-Path $AppRoot 'src/cli'
+$StudioDir = Join-Path $AppRoot 'src/studio'
 $Endpoint = "http://127.0.0.1:$Port/api"
 $RunId = [Guid]::NewGuid().ToString('N')
 $TempRoot = [System.IO.Path]::GetTempPath()
@@ -32,7 +33,7 @@ function Assert-Condition {
 
 function Invoke-JsonRequest {
     param(
-        [ValidateSet('Get', 'Post')]
+        [ValidateSet('Get', 'Post', 'Put')]
         [string]$Method,
         [string]$Uri,
         [hashtable]$Body
@@ -77,11 +78,25 @@ function Invoke-ProviderBuild {
     }
 }
 
+function Invoke-StudioBuild {
+    Push-Location $StudioDir
+    try {
+        & flutter pub get
+        Assert-Condition ($LASTEXITCODE -eq 0) 'Studio dependencies failed'
+        & flutter build web --release --base-href /
+        Assert-Condition ($LASTEXITCODE -eq 0) 'Studio web build failed'
+    } finally {
+        Pop-Location
+    }
+}
+
 try {
     Assert-Condition ($null -ne (Get-Command go -ErrorAction SilentlyContinue)) 'go is not installed'
     Assert-Condition ($null -ne (Get-Command cargo -ErrorAction SilentlyContinue)) 'cargo is not installed'
+    Assert-Condition ($null -ne (Get-Command flutter -ErrorAction SilentlyContinue)) 'flutter is not installed'
 
     Invoke-ProviderBuild
+    Invoke-StudioBuild
 
     $oldDbPath = $env:DB_PATH
     $oldPort = $env:PORT
@@ -146,6 +161,18 @@ try {
     Assert-Condition ($updated.title -eq 'v0.1 验收共识（更新）') 'CLI update did not change the title'
     Assert-Condition ($updated.description -eq '验证 CLI 写入、Provider 持久化和 Studio 展示闭环。') 'CLI update cleared the existing description'
 
+    $secondCreated = Invoke-CliJson @(
+        'consensus',
+        'create',
+        '--endpoint',
+        $Endpoint,
+        '--title',
+        'v0.1 第二条验收共识',
+        '--description',
+        '用于验证图谱关系和废弃状态。'
+    )
+    Assert-Condition ($secondCreated.status -eq 'proposed') 'second consensus is not proposed'
+
     $listed = Invoke-CliJson @(
         'consensus',
             'list',
@@ -172,13 +199,51 @@ try {
             }
         Assert-Condition (-not [string]::IsNullOrWhiteSpace($graph.id)) 'created graph has no id'
 
-        $graphWithNode = Invoke-JsonRequest `
+    $graphWithNode = Invoke-JsonRequest `
             -Method Post `
             -Uri "$Endpoint/consensus-graphs/$($graph.id)/nodes" `
             -Body @{ consensus_id = $created.id }
-        Assert-Condition ($graphWithNode.nodes.id -contains $created.id) 'created consensus is missing from graph'
+    Assert-Condition ($graphWithNode.nodes.id -contains $created.id) 'created consensus is missing from graph'
 
-        Write-Output 'v0.1 verification passed: Provider -> CLI -> Studio data contract'
+    $graphWithSecondNode = Invoke-JsonRequest `
+        -Method Post `
+        -Uri "$Endpoint/consensus-graphs/$($graph.id)/nodes" `
+        -Body @{ consensus_id = $secondCreated.id }
+    Assert-Condition (@($graphWithSecondNode.nodes).Count -eq 2) 'second consensus is missing from graph'
+
+    $graphWithRelation = Invoke-JsonRequest `
+        -Method Post `
+        -Uri "$Endpoint/consensus-graphs/$($graph.id)/relations" `
+        -Body @{
+            from = $created.id
+            to = $secondCreated.id
+            relation_type = '验证'
+        }
+    Assert-Condition (@($graphWithRelation.edges).Count -eq 1) 'graph relation was not persisted'
+
+    $positionedGraph = Invoke-JsonRequest `
+        -Method Put `
+        -Uri "$Endpoint/consensus-graphs/$($graph.id)/nodes/$($created.id)/position" `
+        -Body @{ x = 318.5; y = 204.25 }
+    Assert-Condition ($positionedGraph.node_positions.$($created.id).x -eq 318.5) 'graph node x position was not persisted'
+    Assert-Condition ($positionedGraph.node_positions.$($created.id).y -eq 204.25) 'graph node y position was not persisted'
+
+    $deprecated = Invoke-CliJson @(
+        'consensus',
+        'deprecate',
+        '--endpoint',
+        $Endpoint,
+        $secondCreated.id
+    )
+    Assert-Condition ($deprecated.status -eq 'deprecated') 'CLI deprecate failed'
+
+    $reloadedGraph = Invoke-JsonRequest `
+        -Method Get `
+        -Uri "$Endpoint/consensus-graphs/$($graph.id)"
+    Assert-Condition (@($reloadedGraph.nodes).Count -eq 2) 'reloaded graph lost nodes'
+    Assert-Condition (@($reloadedGraph.edges).Count -eq 1) 'reloaded graph lost relation'
+
+    Write-Output 'v0.1 verification passed: Provider -> CLI -> Studio build and data contract'
     } finally {
         if ($null -ne $oldDbPath) {
             $env:DB_PATH = $oldDbPath

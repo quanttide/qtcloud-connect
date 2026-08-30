@@ -67,6 +67,36 @@ void main() {
     expect(find.byTooltip('添加关联'), findsOneWidget);
   });
 
+  testWidgets('adding a consensus closes the dialog before updating the graph', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ConsensusTraceabilityScreen(
+          loadConsensuses: () async => const [
+            Consensus(
+              id: 'c1',
+              title: '已有共识',
+              description: '已有描述。',
+              createdAt: '2026-08-29T10:00:00Z',
+              updatedAt: '2026-08-29T10:00:00Z',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('添加共识'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, '新增共识');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新增共识'), findsOneWidget);
+    expect(find.text('已有共识'), findsOneWidget);
+  });
+
   testWidgets('graph canvas exposes a wider zoom range and zoom controls', (
     tester,
   ) async {

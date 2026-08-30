@@ -43,4 +43,12 @@ cd ../cli && cargo fmt --check && cargo test --locked && cargo clippy --locked -
 cd ../studio && flutter analyze && flutter test && flutter build web --release --base-href /
 ```
 
+v0.1 的跨组件验收可以直接运行：
+
+```powershell
+pwsh -NoProfile -File tests/verify-v0.1.ps1
+```
+
+详细验收范围见 [v0.1 验收记录](../acceptance/v0.1.md)。
+
 公网部署前必须确认 Provider 位于认证、HTTPS、限流网关之后；v0.1 Provider 本身不内置认证。

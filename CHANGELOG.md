@@ -9,6 +9,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- 增加 v0.1 跨组件验收脚本，验证 Provider、CLI 和共识图 API 的最小闭环。
+- 增加 v0.1 验收记录，明确当前交付范围和 v0.2 的功能边界。
+
 ### Changed
 
 - CLI 发布工作流现在会将三平台二进制上传到 GitHub Release，并自动标记预发布版本。

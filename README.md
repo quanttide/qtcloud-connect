@@ -43,6 +43,15 @@ cd ../studio
 flutter run -d chrome --dart-define=CONNECT_PROVIDER_ENDPOINT=http://localhost:8000/api
 ```
 
+### v0.1 验收
+
+```powershell
+pwsh -NoProfile -File tests/verify-v0.1.ps1
+```
+
+验收范围和完整质量门禁见
+[`docs/acceptance/v0.1.md`](docs/acceptance/v0.1.md)。
+
 ## CLI 使用
 
 ### 共识管理

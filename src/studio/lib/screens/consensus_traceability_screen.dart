@@ -1703,22 +1703,71 @@ class _RelationDraft {
 }
 
 Future<_GraphDraft?> _showGraphDialog(BuildContext context) async {
-  final nameController = TextEditingController();
-  final descriptionController = TextEditingController();
-  final formKey = GlobalKey<FormState>();
-  final result = await showDialog<_GraphDraft>(
+  return showDialog<_GraphDraft>(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (context) => const _GraphDialog(),
+  );
+}
+
+Future<_ConsensusDraft?> _showConsensusDialog(
+  BuildContext context, {
+  Consensus? initial,
+}) async {
+  return showDialog<_ConsensusDraft>(
+    context: context,
+    builder: (context) => _ConsensusDialog(initial: initial),
+  );
+}
+
+Future<_RelationDraft?> _showRelationDialog(
+  BuildContext context,
+  List<Consensus> nodes,
+) async {
+  return showDialog<_RelationDraft>(
+    context: context,
+    builder: (context) => _RelationDialog(nodes: nodes),
+  );
+}
+
+class _GraphDialog extends StatefulWidget {
+  const _GraphDialog();
+
+  @override
+  State<_GraphDialog> createState() => _GraphDialogState();
+}
+
+class _GraphDialogState extends State<_GraphDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _descriptionController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _descriptionController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
       title: const Text('新建图谱'),
       content: Form(
-        key: formKey,
+        key: _formKey,
         child: SizedBox(
           width: 440,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextFormField(
-                controller: nameController,
+                controller: _nameController,
                 autofocus: true,
                 decoration: const InputDecoration(
                   labelText: '图谱名称',
@@ -1729,7 +1778,7 @@ Future<_GraphDraft?> _showGraphDialog(BuildContext context) async {
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: descriptionController,
+                controller: _descriptionController,
                 minLines: 3,
                 maxLines: 6,
                 decoration: const InputDecoration(
@@ -1748,49 +1797,67 @@ Future<_GraphDraft?> _showGraphDialog(BuildContext context) async {
         ),
         FilledButton(
           onPressed: () {
-            if (!formKey.currentState!.validate()) {
+            if (!_formKey.currentState!.validate()) {
               return;
             }
             Navigator.pop(
               context,
               _GraphDraft(
-                name: nameController.text.trim(),
-                description: descriptionController.text.trim(),
+                name: _nameController.text.trim(),
+                description: _descriptionController.text.trim(),
               ),
             );
           },
           child: const Text('创建'),
         ),
       ],
-    ),
-  );
-  nameController.dispose();
-  descriptionController.dispose();
-  return result;
+    );
+  }
 }
 
-Future<_ConsensusDraft?> _showConsensusDialog(
-  BuildContext context, {
-  Consensus? initial,
-}) async {
-  final titleController = TextEditingController(text: initial?.title);
-  final descriptionController = TextEditingController(
-    text: initial?.description,
-  );
-  final formKey = GlobalKey<FormState>();
-  final result = await showDialog<_ConsensusDraft>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(initial == null ? '添加共识' : '编辑共识'),
+class _ConsensusDialog extends StatefulWidget {
+  const _ConsensusDialog({this.initial});
+
+  final Consensus? initial;
+
+  @override
+  State<_ConsensusDialog> createState() => _ConsensusDialogState();
+}
+
+class _ConsensusDialogState extends State<_ConsensusDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _titleController;
+  late final TextEditingController _descriptionController;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.initial?.title);
+    _descriptionController = TextEditingController(
+      text: widget.initial?.description,
+    );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.initial == null ? '添加共识' : '编辑共识'),
       content: Form(
-        key: formKey,
+        key: _formKey,
         child: SizedBox(
           width: 440,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextFormField(
-                controller: titleController,
+                controller: _titleController,
                 autofocus: true,
                 decoration: const InputDecoration(
                   labelText: '标题',
@@ -1801,7 +1868,7 @@ Future<_ConsensusDraft?> _showConsensusDialog(
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: descriptionController,
+                controller: _descriptionController,
                 minLines: 3,
                 maxLines: 6,
                 decoration: const InputDecoration(
@@ -1820,74 +1887,92 @@ Future<_ConsensusDraft?> _showConsensusDialog(
         ),
         FilledButton(
           onPressed: () {
-            if (!formKey.currentState!.validate()) {
+            if (!_formKey.currentState!.validate()) {
               return;
             }
             Navigator.pop(
               context,
               _ConsensusDraft(
-                title: titleController.text.trim(),
-                description: descriptionController.text.trim(),
+                title: _titleController.text.trim(),
+                description: _descriptionController.text.trim(),
               ),
             );
           },
           child: const Text('保存'),
         ),
       ],
-    ),
-  );
-  titleController.dispose();
-  descriptionController.dispose();
-  return result;
+    );
+  }
 }
 
-Future<_RelationDraft?> _showRelationDialog(
-  BuildContext context,
-  List<Consensus> nodes,
-) async {
-  var from = nodes.first.id;
-  var to = nodes[1].id;
-  final typeController = TextEditingController(text: '支持');
-  final formKey = GlobalKey<FormState>();
-  final result = await showDialog<_RelationDraft>(
-    context: context,
-    builder: (context) => AlertDialog(
+class _RelationDialog extends StatefulWidget {
+  const _RelationDialog({required this.nodes});
+
+  final List<Consensus> nodes;
+
+  @override
+  State<_RelationDialog> createState() => _RelationDialogState();
+}
+
+class _RelationDialogState extends State<_RelationDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late String _from;
+  late String _to;
+  late final TextEditingController _typeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _from = widget.nodes.first.id;
+    _to = widget.nodes[1].id;
+    _typeController = TextEditingController(text: '支持');
+  }
+
+  @override
+  void dispose() {
+    _typeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
       title: const Text('添加关联'),
       content: Form(
-        key: formKey,
+        key: _formKey,
         child: SizedBox(
           width: 440,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                initialValue: from,
+                initialValue: _from,
                 decoration: const InputDecoration(
                   labelText: '起点',
                   border: OutlineInputBorder(),
                 ),
                 items: [
-                  for (final node in nodes)
+                  for (final node in widget.nodes)
                     DropdownMenuItem(value: node.id, child: Text(node.title)),
                 ],
-                onChanged: (value) => from = value ?? from,
+                onChanged: (value) => _from = value ?? _from,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                initialValue: to,
+                initialValue: _to,
                 decoration: const InputDecoration(
                   labelText: '终点',
                   border: OutlineInputBorder(),
                 ),
                 items: [
-                  for (final node in nodes)
+                  for (final node in widget.nodes)
                     DropdownMenuItem(value: node.id, child: Text(node.title)),
                 ],
-                onChanged: (value) => to = value ?? to,
+                onChanged: (value) => _to = value ?? _to,
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: typeController,
+                controller: _typeController,
                 decoration: const InputDecoration(
                   labelText: '关联类型',
                   helperText: '可填写前置条件、支持、反对、补充或自定义语义。',
@@ -1907,25 +1992,23 @@ Future<_RelationDraft?> _showRelationDialog(
         ),
         FilledButton(
           onPressed: () {
-            if (!formKey.currentState!.validate() || from == to) {
+            if (!_formKey.currentState!.validate() || _from == _to) {
               return;
             }
             Navigator.pop(
               context,
               _RelationDraft(
-                from: from,
-                to: to,
-                relationType: typeController.text.trim(),
+                from: _from,
+                to: _to,
+                relationType: _typeController.text.trim(),
               ),
             );
           },
           child: const Text('建立关联'),
         ),
       ],
-    ),
-  );
-  typeController.dispose();
-  return result;
+    );
+  }
 }
 
 Future<String?> _showExistingConsensusDialog(

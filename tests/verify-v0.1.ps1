@@ -111,21 +111,43 @@ try {
         }
         Assert-Condition $healthy 'Provider did not become healthy'
 
-        $created = Invoke-CliJson @(
-            'consensus',
-            'create',
-            '--endpoint',
+    $created = Invoke-CliJson @(
+        'consensus',
+        'create',
+        '--endpoint',
             $Endpoint,
             '--title',
             'v0.1 验收共识',
             '--description',
             '验证 CLI 写入、Provider 持久化和 Studio 展示闭环。'
-        )
-        Assert-Condition (-not [string]::IsNullOrWhiteSpace($created.id)) 'created consensus has no id'
-        Assert-Condition ($created.status -eq 'proposed') 'created consensus is not proposed'
+    )
+    Assert-Condition (-not [string]::IsNullOrWhiteSpace($created.id)) 'created consensus has no id'
+    Assert-Condition ($created.status -eq 'proposed') 'created consensus is not proposed'
+    Assert-Condition ($created.description -eq '验证 CLI 写入、Provider 持久化和 Studio 展示闭环。') 'created consensus description is incorrect'
 
-        $listed = Invoke-CliJson @(
-            'consensus',
+    $shown = Invoke-CliJson @(
+        'consensus',
+        'show',
+        '--endpoint',
+        $Endpoint,
+        $created.id
+    )
+    Assert-Condition ($shown.id -eq $created.id) 'CLI show returned the wrong consensus'
+
+    $updated = Invoke-CliJson @(
+        'consensus',
+        'update',
+        '--endpoint',
+        $Endpoint,
+        '--title',
+        'v0.1 验收共识（更新）',
+        $created.id
+    )
+    Assert-Condition ($updated.title -eq 'v0.1 验收共识（更新）') 'CLI update did not change the title'
+    Assert-Condition ($updated.description -eq '验证 CLI 写入、Provider 持久化和 Studio 展示闭环。') 'CLI update cleared the existing description'
+
+    $listed = Invoke-CliJson @(
+        'consensus',
             'list',
             '--endpoint',
             $Endpoint

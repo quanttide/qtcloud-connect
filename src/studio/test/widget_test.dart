@@ -10,8 +10,8 @@ void main() {
     await tester.pumpWidget(const QtCloudConnectApp());
 
     expect(find.text('共识追溯图'), findsOneWidget);
-    expect(find.text('消息'), findsOneWidget);
-    expect(find.text('备忘'), findsOneWidget);
+    expect(find.text('消息'), findsNothing);
+    expect(find.text('备忘'), findsNothing);
   });
 
   testWidgets('consensus screen renders provider data', (tester) async {

@@ -252,6 +252,19 @@ mod tests {
     }
 
     #[test]
+    fn update_description_preserves_existing_value_when_not_requested() {
+        let current = serde_json::json!({
+            "id": "consensus-1",
+            "title": "旧标题",
+            "description": "原有描述"
+        });
+
+        let description = merge_update_description(&current, None).unwrap();
+
+        assert_eq!(description, "原有描述");
+    }
+
+    #[test]
     fn parses_create_command() {
         let args = TestCli::try_parse_from([
             "consensus",

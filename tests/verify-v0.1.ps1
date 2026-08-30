@@ -90,6 +90,17 @@ function Invoke-StudioBuild {
     }
 }
 
+function Invoke-StudioProviderSmoke {
+    Push-Location $StudioDir
+    try {
+        & flutter test test/provider_contract_test.dart `
+            "--dart-define=CONNECT_PROVIDER_ENDPOINT=$Endpoint"
+        Assert-Condition ($LASTEXITCODE -eq 0) 'Studio Provider contract smoke test failed'
+    } finally {
+        Pop-Location
+    }
+}
+
 try {
     Assert-Condition ($null -ne (Get-Command go -ErrorAction SilentlyContinue)) 'go is not installed'
     Assert-Condition ($null -ne (Get-Command cargo -ErrorAction SilentlyContinue)) 'cargo is not installed'
@@ -243,7 +254,9 @@ try {
     Assert-Condition (@($reloadedGraph.nodes).Count -eq 2) 'reloaded graph lost nodes'
     Assert-Condition (@($reloadedGraph.edges).Count -eq 1) 'reloaded graph lost relation'
 
-    Write-Output 'v0.1 verification passed: Provider -> CLI -> Studio build and data contract'
+    Invoke-StudioProviderSmoke
+
+    Write-Output 'v0.1 verification passed: Provider -> CLI -> Studio'
     } finally {
         if ($null -ne $oldDbPath) {
             $env:DB_PATH = $oldDbPath

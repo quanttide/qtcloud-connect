@@ -147,10 +147,7 @@ fn run_result(args: &ConsensusArgs) -> Result<()> {
                     None => {
                         let current = get_json(
                             &client,
-                            endpoint_url(
-                                &args.endpoint,
-                                &format!("/consensuses/{}", args.id),
-                            ),
+                            endpoint_url(&args.endpoint, &format!("/consensuses/{}", args.id)),
                         )?;
                         merge_update_description(&current, None)?
                     }

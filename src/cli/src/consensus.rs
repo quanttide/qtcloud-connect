@@ -142,7 +142,16 @@ fn run_result(args: &ConsensusArgs) -> Result<()> {
             endpoint_url(&args.endpoint, &format!("/consensuses/{}", args.id)),
             &UpdateConsensusRequest {
                 title: args.title.clone(),
-                description: args.description.clone().unwrap_or_default(),
+                description: match args.description.as_deref() {
+                    Some(description) => description.to_string(),
+                    None => {
+                        let current = get_json(
+                            &client,
+                            endpoint_url(&args.endpoint, &format!("/consensuses/{}", args.id)),
+                        )?;
+                        merge_update_description(&current, None)?
+                    }
+                },
             },
         ),
         ConsensusCommand::Confirm(args) => post_json(
@@ -166,6 +175,21 @@ fn run_result(args: &ConsensusArgs) -> Result<()> {
         serde_json::to_string_pretty(&value).context("序列化响应失败")?
     );
     Ok(())
+}
+
+fn merge_update_description(
+    current: &serde_json::Value,
+    requested: Option<&str>,
+) -> Result<String> {
+    if let Some(description) = requested {
+        return Ok(description.to_string());
+    }
+
+    current
+        .get("description")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| anyhow::anyhow!("Provider 响应缺少 description 字段"))
 }
 
 fn get_json(client: &ureq::Agent, url: String) -> Result<serde_json::Value> {
@@ -249,6 +273,19 @@ mod tests {
             endpoint_url("http://localhost:8000/api/", "/consensuses"),
             "http://localhost:8000/api/consensuses"
         );
+    }
+
+    #[test]
+    fn update_description_preserves_existing_value_when_not_requested() {
+        let current = serde_json::json!({
+            "id": "consensus-1",
+            "title": "旧标题",
+            "description": "原有描述"
+        });
+
+        let description = merge_update_description(&current, None).unwrap();
+
+        assert_eq!(description, "原有描述");
     }
 
     #[test]

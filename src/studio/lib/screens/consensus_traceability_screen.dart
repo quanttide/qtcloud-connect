@@ -13,12 +13,12 @@ class ConsensusTraceabilityScreen extends StatefulWidget {
     super.key,
     this.loadConsensuses,
     this.loadGraph,
-    this.apiClient = const ConsensusApiClient(),
+    this.apiClient,
   });
 
   final ConsensusLoader? loadConsensuses;
   final ConsensusGraphLoader? loadGraph;
-  final ConsensusApiClient apiClient;
+  final ConsensusApiClient? apiClient;
 
   @override
   State<ConsensusTraceabilityScreen> createState() =>
@@ -37,6 +37,7 @@ class _ConsensusTraceabilityScreenState
   bool _isSaving = false;
   final Map<String, Map<String, Offset>> _nodePositionsByGraph = {};
   final Map<String, Future<void>> _nodePositionSaveTails = {};
+  late final ConsensusApiClient _apiClient;
 
   bool get _isLocal =>
       widget.loadConsensuses != null || widget.loadGraph != null;
@@ -44,6 +45,7 @@ class _ConsensusTraceabilityScreenState
   @override
   void initState() {
     super.initState();
+    _apiClient = widget.apiClient ?? ConsensusApiClient();
     _graphFuture = _loadInitialGraph();
     _cacheLoadedGraph(_graphFuture);
   }
@@ -55,21 +57,13 @@ class _ConsensusTraceabilityScreenState
         child: Row(
           children: [
             NavigationRail(
-              selectedIndex: 1,
+              selectedIndex: 0,
               labelType: NavigationRailLabelType.all,
               destinations: const [
-                NavigationRailDestination(
-                  icon: Icon(Icons.chat_bubble_outline),
-                  label: Text('消息'),
-                ),
                 NavigationRailDestination(
                   icon: Icon(Icons.account_tree_outlined),
                   selectedIcon: Icon(Icons.account_tree),
                   label: Text('共识'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.description_outlined),
-                  label: Text('备忘'),
                 ),
               ],
             ),
@@ -122,7 +116,7 @@ class _ConsensusTraceabilityScreenState
       return _localGraph(nodes: await widget.loadConsensuses!());
     }
 
-    final graphs = await widget.apiClient.listGraphs();
+    final graphs = await _apiClient.listGraphs();
     _graphs = graphs;
     if (graphs.isNotEmpty) {
       final selected = graphs
@@ -130,19 +124,19 @@ class _ConsensusTraceabilityScreenState
           .firstOrNull;
       final graph = selected ?? graphs.first;
       _selectedGraphId = graph.id;
-      return widget.apiClient.getGraph(graph.id);
+      return _apiClient.getGraph(graph.id);
     }
 
-    final graph = await widget.apiClient.createGraph(
+    final graph = await _apiClient.createGraph(
       name: '共识追溯图',
       description: '团队共识的可编辑决策网络。',
     );
     _graphs = [graph];
     _selectedGraphId = graph.id;
-    final consensuses = await widget.apiClient.listConsensuses();
+    final consensuses = await _apiClient.listConsensuses();
     var current = graph;
     for (final consensus in consensuses) {
-      current = await widget.apiClient.addNode(
+      current = await _apiClient.addNode(
         graphId: current.id,
         consensusId: consensus.id,
       );
@@ -164,7 +158,7 @@ class _ConsensusTraceabilityScreenState
       _error = null;
     });
     try {
-      final graph = await widget.apiClient.createGraph(
+      final graph = await _apiClient.createGraph(
         name: draft.name,
         description: draft.description,
       );
@@ -196,7 +190,7 @@ class _ConsensusTraceabilityScreenState
     if (_isLocal || _isSaving || graphId == _selectedGraphId) {
       return;
     }
-    final future = widget.apiClient.getGraph(graphId);
+    final future = _apiClient.getGraph(graphId);
     setState(() {
       _selectedGraphId = graphId;
       _graphRequestVersion++;
@@ -283,7 +277,7 @@ class _ConsensusTraceabilityScreenState
       // A later drag should still be able to persist after a failed save.
     }
     try {
-      await widget.apiClient.updateNodePosition(
+      await _apiClient.updateNodePosition(
         graphId: graphID,
         consensusId: consensusID,
         x: position.dx,
@@ -337,11 +331,11 @@ class _ConsensusTraceabilityScreenState
           updatedAt: now,
         );
       }
-      final consensus = await widget.apiClient.createConsensus(
+      final consensus = await _apiClient.createConsensus(
         title: draft.title,
         description: draft.description,
       );
-      return widget.apiClient.addNode(
+      return _apiClient.addNode(
         graphId: graph.id,
         consensusId: consensus.id,
       );
@@ -356,7 +350,7 @@ class _ConsensusTraceabilityScreenState
       }
       final available = _isLocal
           ? const <Consensus>[]
-          : (await widget.apiClient.listConsensuses())
+          : (await _apiClient.listConsensuses())
                 .where(
                   (consensus) =>
                       !graph.nodes.any((node) => node.id == consensus.id),
@@ -377,7 +371,7 @@ class _ConsensusTraceabilityScreenState
         return;
       }
       await _runMutation(
-        () => widget.apiClient.addNode(
+        () => _apiClient.addNode(
           graphId: graph.id,
           consensusId: consensusId,
         ),
@@ -417,7 +411,7 @@ class _ConsensusTraceabilityScreenState
           updatedAt: now,
         );
       }
-      final updated = await widget.apiClient.updateConsensus(
+      final updated = await _apiClient.updateConsensus(
         id: selected.id,
         title: draft.title,
         description: draft.description,
@@ -460,7 +454,7 @@ class _ConsensusTraceabilityScreenState
           updatedAt: now,
         );
       }
-      return widget.apiClient.createGraphRelation(
+      return _apiClient.createGraphRelation(
         graphId: current.id,
         from: draft.from,
         to: draft.to,
@@ -494,7 +488,7 @@ class _ConsensusTraceabilityScreenState
           updatedAt: now,
         );
       }
-      return widget.apiClient.removeNode(
+      return _apiClient.removeNode(
         graphId: graph.id,
         consensusId: selected.id,
       );
@@ -519,7 +513,7 @@ class _ConsensusTraceabilityScreenState
           updatedAt: DateTime.now().toUtc().toIso8601String(),
         );
       }
-      return widget.apiClient.removeEdge(
+      return _apiClient.removeEdge(
         graphId: graph.id,
         relationId: edge.id,
       );
@@ -965,6 +959,7 @@ class _GraphCanvas extends StatefulWidget {
 
   static const nodeSize = Size(196, 108);
   static const minimumCanvasSize = Size(1200, 760);
+  static const canvasPadding = 24.0;
 
   final ConsensusGraph graph;
   final String? selectedId;
@@ -996,16 +991,33 @@ class _GraphCanvasState extends State<_GraphCanvas> {
     final theme = Theme.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final positions = _layoutNodes(widget.graph);
-        final rightEdge = positions.values.fold(
+        final logicalPositions = _layoutNodes(widget.graph);
+        final canvasOrigin = _canvasOrigin(logicalPositions);
+        final positions = {
+          for (final entry in logicalPositions.entries)
+            entry.key: entry.value + canvasOrigin,
+        };
+        final rightEdge = logicalPositions.values.fold(
           _GraphCanvas.minimumCanvasSize.width,
           (value, position) =>
-              math.max(value, position.dx + _GraphCanvas.nodeSize.width + 24),
+              math.max(
+                value,
+                position.dx +
+                    canvasOrigin.dx +
+                    _GraphCanvas.nodeSize.width +
+                    _GraphCanvas.canvasPadding,
+              ),
         );
-        final bottomEdge = positions.values.fold(
+        final bottomEdge = logicalPositions.values.fold(
           _GraphCanvas.minimumCanvasSize.height,
           (value, position) =>
-              math.max(value, position.dy + _GraphCanvas.nodeSize.height + 24),
+              math.max(
+                value,
+                position.dy +
+                    canvasOrigin.dy +
+                    _GraphCanvas.nodeSize.height +
+                    _GraphCanvas.canvasPadding,
+              ),
         );
         final canvasSize = Size(
           math.max(rightEdge, constraints.maxWidth).toDouble(),
@@ -1061,10 +1073,10 @@ class _GraphCanvasState extends State<_GraphCanvas> {
                                 onPointerDown: (event) => _startNodeDrag(
                                   node.id,
                                   event,
-                                  positions[node.id]!,
+                                  logicalPositions[node.id]!,
                                 ),
                                 onPointerMove: (event) =>
-                                    _updateNodeDrag(node.id, event, canvasSize),
+                                    _updateNodeDrag(node.id, event),
                                 onPointerUp: (event) =>
                                     _endNodeDrag(node.id, event),
                                 onPointerCancel: () => _cancelNodeDrag(node.id),
@@ -1128,11 +1140,11 @@ class _GraphCanvasState extends State<_GraphCanvas> {
     _transformationController.value = Matrix4.identity();
   }
 
-  void _startNodeDrag(String id, PointerDownEvent event, Offset nodePosition) {
+  void _startNodeDrag(String id, PointerDownEvent event, Offset logicalPosition) {
     if (_draggingPointer != null) {
       return;
     }
-    _dragPositions[id] = nodePosition;
+    _dragPositions[id] = logicalPosition;
     setState(() {
       _draggingNodeID = id;
       _draggingPointer = event.pointer;
@@ -1140,7 +1152,7 @@ class _GraphCanvasState extends State<_GraphCanvas> {
     });
   }
 
-  void _updateNodeDrag(String id, PointerMoveEvent event, Size canvasSize) {
+  void _updateNodeDrag(String id, PointerMoveEvent event) {
     if (_draggingNodeID != id || _draggingPointer != event.pointer) {
       return;
     }
@@ -1152,10 +1164,7 @@ class _GraphCanvasState extends State<_GraphCanvas> {
       return;
     }
     final scale = _transformationController.value.getMaxScaleOnAxis();
-    final position = _clampNodePosition(
-      currentPosition + event.delta / scale,
-      canvasSize,
-    );
+    final position = currentPosition + event.delta / scale;
     setState(() {
       _dragPositions[id] = position;
       _nodeWasMoved = true;
@@ -1190,21 +1199,25 @@ class _GraphCanvasState extends State<_GraphCanvas> {
     }
   }
 
-  Offset _clampNodePosition(Offset position, Size canvasSize) {
-    const padding = 24.0;
+  Offset _canvasOrigin(Map<String, Offset> positions) {
+    if (positions.isEmpty) {
+      return Offset.zero;
+    }
+    final minimumX = positions.values.fold<double>(
+      0,
+      (value, position) => math.min(value, position.dx),
+    );
+    final minimumY = positions.values.fold<double>(
+      0,
+      (value, position) => math.min(value, position.dy),
+    );
     return Offset(
-      position.dx
-          .clamp(
-            padding,
-            canvasSize.width - _GraphCanvas.nodeSize.width - padding,
-          )
-          .toDouble(),
-      position.dy
-          .clamp(
-            padding,
-            canvasSize.height - _GraphCanvas.nodeSize.height - padding,
-          )
-          .toDouble(),
+      minimumX < _GraphCanvas.canvasPadding
+          ? _GraphCanvas.canvasPadding - minimumX
+          : 0,
+      minimumY < _GraphCanvas.canvasPadding
+          ? _GraphCanvas.canvasPadding - minimumY
+          : 0,
     );
   }
 
@@ -1703,22 +1716,71 @@ class _RelationDraft {
 }
 
 Future<_GraphDraft?> _showGraphDialog(BuildContext context) async {
-  final nameController = TextEditingController();
-  final descriptionController = TextEditingController();
-  final formKey = GlobalKey<FormState>();
-  final result = await showDialog<_GraphDraft>(
+  return showDialog<_GraphDraft>(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (context) => const _GraphDialog(),
+  );
+}
+
+Future<_ConsensusDraft?> _showConsensusDialog(
+  BuildContext context, {
+  Consensus? initial,
+}) async {
+  return showDialog<_ConsensusDraft>(
+    context: context,
+    builder: (context) => _ConsensusDialog(initial: initial),
+  );
+}
+
+Future<_RelationDraft?> _showRelationDialog(
+  BuildContext context,
+  List<Consensus> nodes,
+) async {
+  return showDialog<_RelationDraft>(
+    context: context,
+    builder: (context) => _RelationDialog(nodes: nodes),
+  );
+}
+
+class _GraphDialog extends StatefulWidget {
+  const _GraphDialog();
+
+  @override
+  State<_GraphDialog> createState() => _GraphDialogState();
+}
+
+class _GraphDialogState extends State<_GraphDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _descriptionController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _descriptionController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
       title: const Text('新建图谱'),
       content: Form(
-        key: formKey,
+        key: _formKey,
         child: SizedBox(
           width: 440,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextFormField(
-                controller: nameController,
+                controller: _nameController,
                 autofocus: true,
                 decoration: const InputDecoration(
                   labelText: '图谱名称',
@@ -1729,7 +1791,7 @@ Future<_GraphDraft?> _showGraphDialog(BuildContext context) async {
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: descriptionController,
+                controller: _descriptionController,
                 minLines: 3,
                 maxLines: 6,
                 decoration: const InputDecoration(
@@ -1748,49 +1810,67 @@ Future<_GraphDraft?> _showGraphDialog(BuildContext context) async {
         ),
         FilledButton(
           onPressed: () {
-            if (!formKey.currentState!.validate()) {
+            if (!_formKey.currentState!.validate()) {
               return;
             }
             Navigator.pop(
               context,
               _GraphDraft(
-                name: nameController.text.trim(),
-                description: descriptionController.text.trim(),
+                name: _nameController.text.trim(),
+                description: _descriptionController.text.trim(),
               ),
             );
           },
           child: const Text('创建'),
         ),
       ],
-    ),
-  );
-  nameController.dispose();
-  descriptionController.dispose();
-  return result;
+    );
+  }
 }
 
-Future<_ConsensusDraft?> _showConsensusDialog(
-  BuildContext context, {
-  Consensus? initial,
-}) async {
-  final titleController = TextEditingController(text: initial?.title);
-  final descriptionController = TextEditingController(
-    text: initial?.description,
-  );
-  final formKey = GlobalKey<FormState>();
-  final result = await showDialog<_ConsensusDraft>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(initial == null ? '添加共识' : '编辑共识'),
+class _ConsensusDialog extends StatefulWidget {
+  const _ConsensusDialog({this.initial});
+
+  final Consensus? initial;
+
+  @override
+  State<_ConsensusDialog> createState() => _ConsensusDialogState();
+}
+
+class _ConsensusDialogState extends State<_ConsensusDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _titleController;
+  late final TextEditingController _descriptionController;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.initial?.title);
+    _descriptionController = TextEditingController(
+      text: widget.initial?.description,
+    );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.initial == null ? '添加共识' : '编辑共识'),
       content: Form(
-        key: formKey,
+        key: _formKey,
         child: SizedBox(
           width: 440,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextFormField(
-                controller: titleController,
+                controller: _titleController,
                 autofocus: true,
                 decoration: const InputDecoration(
                   labelText: '标题',
@@ -1801,7 +1881,7 @@ Future<_ConsensusDraft?> _showConsensusDialog(
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: descriptionController,
+                controller: _descriptionController,
                 minLines: 3,
                 maxLines: 6,
                 decoration: const InputDecoration(
@@ -1820,74 +1900,92 @@ Future<_ConsensusDraft?> _showConsensusDialog(
         ),
         FilledButton(
           onPressed: () {
-            if (!formKey.currentState!.validate()) {
+            if (!_formKey.currentState!.validate()) {
               return;
             }
             Navigator.pop(
               context,
               _ConsensusDraft(
-                title: titleController.text.trim(),
-                description: descriptionController.text.trim(),
+                title: _titleController.text.trim(),
+                description: _descriptionController.text.trim(),
               ),
             );
           },
           child: const Text('保存'),
         ),
       ],
-    ),
-  );
-  titleController.dispose();
-  descriptionController.dispose();
-  return result;
+    );
+  }
 }
 
-Future<_RelationDraft?> _showRelationDialog(
-  BuildContext context,
-  List<Consensus> nodes,
-) async {
-  var from = nodes.first.id;
-  var to = nodes[1].id;
-  final typeController = TextEditingController(text: '支持');
-  final formKey = GlobalKey<FormState>();
-  final result = await showDialog<_RelationDraft>(
-    context: context,
-    builder: (context) => AlertDialog(
+class _RelationDialog extends StatefulWidget {
+  const _RelationDialog({required this.nodes});
+
+  final List<Consensus> nodes;
+
+  @override
+  State<_RelationDialog> createState() => _RelationDialogState();
+}
+
+class _RelationDialogState extends State<_RelationDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late String _from;
+  late String _to;
+  late final TextEditingController _typeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _from = widget.nodes.first.id;
+    _to = widget.nodes[1].id;
+    _typeController = TextEditingController(text: '支持');
+  }
+
+  @override
+  void dispose() {
+    _typeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
       title: const Text('添加关联'),
       content: Form(
-        key: formKey,
+        key: _formKey,
         child: SizedBox(
           width: 440,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                initialValue: from,
+                initialValue: _from,
                 decoration: const InputDecoration(
                   labelText: '起点',
                   border: OutlineInputBorder(),
                 ),
                 items: [
-                  for (final node in nodes)
+                  for (final node in widget.nodes)
                     DropdownMenuItem(value: node.id, child: Text(node.title)),
                 ],
-                onChanged: (value) => from = value ?? from,
+                onChanged: (value) => _from = value ?? _from,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                initialValue: to,
+                initialValue: _to,
                 decoration: const InputDecoration(
                   labelText: '终点',
                   border: OutlineInputBorder(),
                 ),
                 items: [
-                  for (final node in nodes)
+                  for (final node in widget.nodes)
                     DropdownMenuItem(value: node.id, child: Text(node.title)),
                 ],
-                onChanged: (value) => to = value ?? to,
+                onChanged: (value) => _to = value ?? _to,
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: typeController,
+                controller: _typeController,
                 decoration: const InputDecoration(
                   labelText: '关联类型',
                   helperText: '可填写前置条件、支持、反对、补充或自定义语义。',
@@ -1907,25 +2005,23 @@ Future<_RelationDraft?> _showRelationDialog(
         ),
         FilledButton(
           onPressed: () {
-            if (!formKey.currentState!.validate() || from == to) {
+            if (!_formKey.currentState!.validate() || _from == _to) {
               return;
             }
             Navigator.pop(
               context,
               _RelationDraft(
-                from: from,
-                to: to,
-                relationType: typeController.text.trim(),
+                from: _from,
+                to: _to,
+                relationType: _typeController.text.trim(),
               ),
             );
           },
           child: const Text('建立关联'),
         ),
       ],
-    ),
-  );
-  typeController.dispose();
-  return result;
+    );
+  }
 }
 
 Future<String?> _showExistingConsensusDialog(

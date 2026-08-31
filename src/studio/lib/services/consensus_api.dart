@@ -5,35 +5,52 @@ import 'package:http/http.dart' as http;
 import '../models/consensus.dart';
 
 class ConsensusApiClient {
-  const ConsensusApiClient({this.endpoint = defaultEndpoint});
+  ConsensusApiClient({
+    this.endpoint = defaultEndpoint,
+    http.Client? client,
+  }) : _client = client ?? _defaultClient;
 
   static const defaultEndpoint = String.fromEnvironment(
     'CONNECT_PROVIDER_ENDPOINT',
     defaultValue: 'http://localhost:8000/api',
   );
+  static final http.Client _defaultClient = http.Client();
+
   final String endpoint;
+  final http.Client _client;
 
   Future<List<Consensus>> listConsensuses() async {
-    final uri = Uri.parse(
-      '${endpoint.replaceAll(RegExp(r'/+$'), '')}/consensuses',
-    );
-    final response = await http.get(uri);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ConsensusApiException('Provider returned ${response.statusCode}');
+    const pageSize = 100;
+    final consensuses = <Consensus>[];
+    var page = 1;
+
+    while (true) {
+      final decoded = await _request(
+        'GET',
+        '/consensuses?page=$page&page_size=$pageSize',
+      );
+      final items = switch (decoded['items']) {
+        final List<dynamic> values => values,
+        _ => throw const FormatException('Unexpected consensus response'),
+      };
+      consensuses.addAll(
+        items
+            .whereType<Map<String, dynamic>>()
+            .map(Consensus.fromJson)
+            .where((item) => item.id.isNotEmpty && item.title.isNotEmpty),
+      );
+
+      final total = (decoded['total'] as num?)?.toInt();
+      if (total == null ||
+          consensuses.length >= total ||
+          items.isEmpty ||
+          items.length < pageSize) {
+        break;
+      }
+      page++;
     }
 
-    final decoded = jsonDecode(response.body);
-    final items = switch (decoded) {
-      {'items': final List<dynamic> values} => values,
-      final List<dynamic> values => values,
-      _ => throw const FormatException('Unexpected consensus response'),
-    };
-
-    return items
-        .whereType<Map<String, dynamic>>()
-        .map(Consensus.fromJson)
-        .where((item) => item.id.isNotEmpty && item.title.isNotEmpty)
-        .toList(growable: false);
+    return List.unmodifiable(consensuses);
   }
 
   Future<List<ConsensusGraph>> listGraphs() async {
@@ -190,18 +207,18 @@ class ConsensusApiClient {
     );
     final encodedBody = body == null ? null : jsonEncode(body);
     final response = switch (method) {
-      'GET' => await http.get(uri),
-      'POST' => await http.post(
+      'GET' => await _client.get(uri),
+      'POST' => await _client.post(
         uri,
         headers: const {'Content-Type': 'application/json'},
         body: encodedBody,
       ),
-      'PUT' => await http.put(
+      'PUT' => await _client.put(
         uri,
         headers: const {'Content-Type': 'application/json'},
         body: encodedBody,
       ),
-      'DELETE' => await http.delete(uri),
+      'DELETE' => await _client.delete(uri),
       _ => throw ArgumentError.value(
         method,
         'method',

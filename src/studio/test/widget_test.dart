@@ -10,8 +10,8 @@ void main() {
     await tester.pumpWidget(const QtCloudConnectApp());
 
     expect(find.text('共识追溯图'), findsOneWidget);
-    expect(find.text('消息'), findsOneWidget);
-    expect(find.text('备忘'), findsOneWidget);
+    expect(find.text('消息'), findsNothing);
+    expect(find.text('备忘'), findsNothing);
   });
 
   testWidgets('consensus screen renders provider data', (tester) async {
@@ -65,6 +65,36 @@ void main() {
     expect(find.byTooltip('纳入已有共识'), findsOneWidget);
     expect(find.byTooltip('编辑共识'), findsOneWidget);
     expect(find.byTooltip('添加关联'), findsOneWidget);
+  });
+
+  testWidgets('adding a consensus closes the dialog before updating the graph', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ConsensusTraceabilityScreen(
+          loadConsensuses: () async => const [
+            Consensus(
+              id: 'c1',
+              title: '已有共识',
+              description: '已有描述。',
+              createdAt: '2026-08-29T10:00:00Z',
+              updatedAt: '2026-08-29T10:00:00Z',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('添加共识'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, '新增共识');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新增共识'), findsOneWidget);
+    expect(find.text('已有共识'), findsOneWidget);
   });
 
   testWidgets('graph canvas exposes a wider zoom range and zoom controls', (
@@ -250,6 +280,84 @@ void main() {
         tester.getTopLeft(find.text('可拖动节点')).dy,
         greaterThan(initialPosition.dy),
       );
+    },
+  );
+
+  testWidgets(
+    'dragging a node can expand the workspace beyond the initial canvas',
+    (tester) async {
+      const graph = ConsensusGraph(
+        id: 'expand-graph',
+        name: '可扩展画布',
+        description: '节点可以移动到初始画布边界之外。',
+        nodes: [
+          Consensus(
+            id: 'expand-node',
+            title: '可扩展节点',
+            description: '拖动后应允许画布扩展。',
+            createdAt: '2026-08-29T10:00:00Z',
+            updatedAt: '2026-08-29T10:00:00Z',
+          ),
+        ],
+        edges: [],
+        createdAt: '2026-08-29T10:00:00Z',
+        updatedAt: '2026-08-29T10:00:00Z',
+      );
+      final api = _GraphApiClient(const [graph]);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ConsensusTraceabilityScreen(apiClient: api)),
+      );
+      await tester.pumpAndSettle();
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('可扩展节点')),
+      );
+      await gesture.moveBy(const Offset(1600, 0));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(api.positionUpdates, hasLength(1));
+      expect(api.positionUpdates.single.x, greaterThan(1200));
+    },
+  );
+
+  testWidgets(
+    'dragging a node can move beyond the left workspace padding',
+    (tester) async {
+      const graph = ConsensusGraph(
+        id: 'left-graph',
+        name: '自由拖动',
+        description: '节点可以移动到初始左侧边界之外。',
+        nodes: [
+          Consensus(
+            id: 'left-node',
+            title: '可向左移动的节点',
+            description: '拖动后应保留负坐标。',
+            createdAt: '2026-08-29T10:00:00Z',
+            updatedAt: '2026-08-29T10:00:00Z',
+          ),
+        ],
+        edges: [],
+        createdAt: '2026-08-29T10:00:00Z',
+        updatedAt: '2026-08-29T10:00:00Z',
+      );
+      final api = _GraphApiClient(const [graph]);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ConsensusTraceabilityScreen(apiClient: api)),
+      );
+      await tester.pumpAndSettle();
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('可向左移动的节点')),
+      );
+      await gesture.moveBy(const Offset(-400, 0));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(api.positionUpdates, hasLength(1));
+      expect(api.positionUpdates.single.x, lessThan(0));
     },
   );
 

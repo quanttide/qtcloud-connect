@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -40,6 +41,41 @@ func TestUpdateConsensusReturnsNilForMissingRecord(t *testing.T) {
 	}
 	if consensus != nil {
 		t.Fatalf("UpdateConsensus() = %#v", consensus)
+	}
+}
+
+func TestUpdateMessageRejectsContentChanges(t *testing.T) {
+	s, err := New(filepath.Join(t.TempDir(), "qtcloud-connect.db"))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	defer s.Close()
+
+	createdAt := time.Date(2026, time.August, 30, 0, 0, 0, 0, time.UTC)
+	message := &domain.Message{
+		ID:        "m1",
+		Content:   "原始消息",
+		Type:      "user",
+		CreatedAt: createdAt,
+	}
+	if err := s.AddMessage(message); err != nil {
+		t.Fatalf("AddMessage() error = %v", err)
+	}
+
+	updated, err := s.UpdateMessage(message.ID, "修改后的消息")
+	if !errors.Is(err, ErrMessageImmutable) {
+		t.Fatalf("UpdateMessage() error = %v, want ErrMessageImmutable", err)
+	}
+	if updated != nil {
+		t.Fatalf("UpdateMessage() = %#v, want nil", updated)
+	}
+
+	stored, err := s.GetMessage(message.ID)
+	if err != nil {
+		t.Fatalf("GetMessage() error = %v", err)
+	}
+	if stored == nil || stored.Content != message.Content {
+		t.Fatalf("GetMessage() = %#v, want original content", stored)
 	}
 }
 

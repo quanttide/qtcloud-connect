@@ -79,7 +79,7 @@ flutter run -d chrome --dart-define=CONNECT_PROVIDER_ENDPOINT=http://localhost:8
 
 ## 发布与部署
 
-- 当前阶段先完成 v0.1 实现和验收，不执行发布。
+- v0.1 已完成实现和验收；发布通过 `qtcloud-devops release publish` 执行。
 - CLI：后续发布前先走 `cli/v0.1.0-rc.x`，确认 CI、crates.io 发布和二进制 artifact 流程。
 - Provider：先通过 `go test ./...`、`go vet ./...`、`go build ./cmd/server`，再部署到有持久化 `DB_PATH` 的运行环境。
 - Studio：通过 `flutter build web --release --base-href /` 产出静态资源，部署到目标域名。

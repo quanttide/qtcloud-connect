@@ -16,6 +16,7 @@ var (
 	ErrConsensusGraphCycle = errors.New("consensus graph edge would create a cycle")
 	ErrConsensusGraphEdge  = errors.New("consensus graph edge is invalid")
 	ErrConsensusImmutable  = errors.New("marked consensus is immutable")
+	ErrMessageImmutable    = errors.New("message content is immutable")
 )
 
 // Storage 是 SQLite 存储层。
@@ -204,17 +205,9 @@ func (s *Storage) ListMessages() ([]*domain.Message, error) {
 	return messages, nil
 }
 
-// UpdateMessage 更新消息内容。
+// UpdateMessage 拒绝更新消息内容。
 func (s *Storage) UpdateMessage(id, content string) (*domain.Message, error) {
-	now := time.Now()
-	_, err := s.db.Exec(
-		"UPDATE messages SET content = ?, updated_at = ? WHERE id = ?",
-		content, now.Format(time.RFC3339), id,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return s.GetMessage(id)
+	return nil, ErrMessageImmutable
 }
 
 // AddConsensus 添加共识。
@@ -952,11 +945,17 @@ func formatTime(t *time.Time) string {
 
 func scanMessage(row *sql.Row) (*domain.Message, error) {
 	var msg domain.Message
+	var createdAt string
 	var updatedAt sql.NullString
-	err := row.Scan(&msg.ID, &msg.Content, &msg.Type, &msg.CreatedAt, &updatedAt)
+	err := row.Scan(&msg.ID, &msg.Content, &msg.Type, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, err
 	}
+	parsedCreatedAt, err := time.Parse(time.RFC3339, createdAt)
+	if err != nil {
+		return nil, err
+	}
+	msg.CreatedAt = parsedCreatedAt
 	if updatedAt.Valid {
 		t, err := time.Parse(time.RFC3339, updatedAt.String)
 		if err == nil {
@@ -968,11 +967,17 @@ func scanMessage(row *sql.Row) (*domain.Message, error) {
 
 func scanMessageRows(rows *sql.Rows) (*domain.Message, error) {
 	var msg domain.Message
+	var createdAt string
 	var updatedAt sql.NullString
-	err := rows.Scan(&msg.ID, &msg.Content, &msg.Type, &msg.CreatedAt, &updatedAt)
+	err := rows.Scan(&msg.ID, &msg.Content, &msg.Type, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, err
 	}
+	parsedCreatedAt, err := time.Parse(time.RFC3339, createdAt)
+	if err != nil {
+		return nil, err
+	}
+	msg.CreatedAt = parsedCreatedAt
 	if updatedAt.Valid {
 		t, err := time.Parse(time.RFC3339, updatedAt.String)
 		if err == nil {

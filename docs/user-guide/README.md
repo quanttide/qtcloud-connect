@@ -33,5 +33,6 @@ qtcloud-connect consensus deprecate <consensus-id>
 
 ## 后续路线
 
-- v0.2：建立 Message -> Consensus -> Memo 的共识加工管道。
-- v0.3：接入 qtdata 等业务系统，加强客户沟通沉淀。
+- v0.2：飞书能力退出，消息从适配层镜像接入，共识可溯源到原始消息。
+- v0.3：从消息草拟共识，生成 Memo。
+- v0.4：接入 qtdata 等业务系统，扩展企业微信。

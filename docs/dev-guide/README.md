@@ -1,19 +1,17 @@
 # 开发者指南
 
-本目录记录 qtcloud-connect 的当前开发方式。v0.1 以共识追溯闭环为核心：
-Go Provider 持久化共识，Rust CLI 手动更新共识，Flutter Studio 展示共识页面。
+本目录记录 qtcloud-connect 的开发方式。v0.2 起的目标形态是沟通域的共识层：Provider 持久化消息、共识与关系，CLI 操作共识，Studio 展示共识图；飞书适配在 qtcloud-feishu，本仓最终不直接调用平台。
 
 ## 文档结构
 
-| 文档 | 说明 |
-|------|------|
-| [详细内容](index.md) | 技术栈、开发流程、项目结构、常用命令 |
+- [详细内容](index.md)：平台方向、边界、架构、当前目标与路线。
+- [飞书功能废弃与移除](feishu-removal.md)：替代映射、冻结、分批删除与验收。
 
 ## 技术栈
 
-- **Provider**：Go、SQLite、标准库 `net/http`
-- **CLI**：Rust、clap、ureq
-- **Studio**：Flutter、Dart、package:http
+- Provider：Go、SQLite、标准库 `net/http`
+- CLI：Rust、clap、ureq
+- Studio：Flutter、Dart、package:http
 
 ## 快速开始
 
@@ -49,6 +47,4 @@ v0.1 的跨组件验收可以直接运行：
 pwsh -NoProfile -File tests/verify-v0.1.ps1
 ```
 
-详细验收范围见 [v0.1 验收记录](../acceptance/v0.1.md)。
-
-公网部署前必须确认 Provider 位于认证、HTTPS、限流网关之后；v0.1 Provider 本身不内置认证。
+公网部署前必须确认 Provider 位于认证、HTTPS、限流网关之后；v0.1 Provider 本身不内置用户级认证。

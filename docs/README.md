@@ -2,7 +2,7 @@
 
 ## 产品简介
 
-量潮沟通云（qtcloud-connect）是一款沟通管理工具，当前 v0.1 聚焦把团队讨论沉淀为可追溯共识：CLI 手动记录，Provider 持久化，Studio 展示共识追溯页面。
+量潮沟通云（qtcloud-connect）是沟通域的共识平台，当前把团队讨论沉淀为可追溯共识：CLI 记录共识，Provider 持久化，Studio 展示共识追溯页面。飞书适配在 qtcloud-feishu，本仓从 v0.2 起不直接对接平台。
 
 ## 文档结构
 
@@ -15,14 +15,15 @@
 - 常见问题
 
 ### [开发者指南](dev-guide/README.md)
-面向开发人员的技术文档，帮助理解当前 Go Provider、Rust CLI、Flutter Studio 的开发和发布前检查。
+面向开发人员的技术文档，帮助理解当前 Go Provider、Rust CLI、Flutter Studio 的开发和发布前检查，以及飞书能力的废弃与移除。
+- 平台方向与边界
 - 本地开发命令
 - 测试和构建命令
 - 发布与部署注意事项
 
-### [验收记录](acceptance/v0.1.md)
+### [验收脚本](../tests/verify-v0.1.ps1)
 
-记录 v0.1 的交付范围、验收命令、质量门禁和已知限制。
+覆盖 Provider、CLI 与 Studio 的共识闭环；验收范围随 v0.2 的消息摄取与溯源扩展。
 
 ### [API 参考文档](api-references/README.md)
 详细的 API 接口文档，供开发人员调用和集成。

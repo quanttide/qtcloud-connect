@@ -55,5 +55,6 @@ qtcloud-connect consensus deprecate <consensus-id>
 
 ## 后续 API 路线
 
-- v0.2：建立 Message -> Consensus -> Memo 共识加工管道。
-- v0.3：把共识生产线接入 qtdata 等业务系统。
+- v0.2：消息摄取与溯源接口，接适配层镜像。
+- v0.3：Message -> Consensus -> Memo 共识加工管道。
+- v0.4：把共识生产线接入 qtdata 等业务系统。

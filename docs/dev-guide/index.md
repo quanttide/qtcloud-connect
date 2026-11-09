@@ -115,7 +115,6 @@ CLI 通过 `cli/*` 标签发布，移除飞书能力属于破坏性变更，走 
 
 ## 文档
 
-- [群与渠道管理（lite）](lite.md)：群资产卡片化、名称与职责描述、群成员与群间关系，渠道先手动管理、适配层后接。
 - [飞书功能废弃与移除](feishu-removal.md)
 - [开发者指南概览](README.md)
 - [Provider API](../api-references/provider.md)

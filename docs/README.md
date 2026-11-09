@@ -17,7 +17,7 @@
 - CLI 记录共识
 - Studio 查看共识
 - 常见问题
-- [沟通渠道卡片集（lite）](../src/lite/docs/user-guide/index.md)：卡片字段，以及渠道不绑定平台、先手动管理的口径
+- [沟通渠道卡片集（lite）](../src/studio/doc/user-guide/index.md)：卡片字段，以及渠道不绑定平台、先手动管理的口径
 
 ### [开发者指南](dev-guide/README.md)
 面向开发人员的技术文档，帮助理解当前 Go Provider、Rust CLI、Flutter Studio 的开发和发布前检查，以及飞书能力的废弃与移除。

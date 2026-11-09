@@ -4,4 +4,4 @@
 
 ## 文档
 
-- [沟通渠道卡片集（lite）](../../src/lite/docs/intro/index.md)：使用场景，向新人介绍渠道时要解决的问题。
+- [沟通渠道卡片集（lite）](../../src/studio/doc/intro/index.md)：使用场景，向新人介绍渠道时要解决的问题。

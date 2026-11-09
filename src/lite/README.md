@@ -8,8 +8,9 @@
 
 ## 文档
 
-- [介绍](docs/intro/index.md)：要解决的问题与使用场景。
-- [用户指南](docs/user-guide/index.md)：卡片字段，以及渠道不绑定平台、先手动管理的口径。
+- [介绍](../studio/doc/intro/index.md)：要解决的问题与使用场景。
+- [群聊渠道](../studio/doc/intro/channel/group.md)：管理目标，以及渠道不绑定平台、先手动管理的口径。
+- [用户指南](../studio/doc/user-guide/index.md)：卡片形态与卡片字段。
 
 ## 命令
 

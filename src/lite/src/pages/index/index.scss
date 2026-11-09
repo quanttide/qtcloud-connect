@@ -1,0 +1,56 @@
+.index {
+  padding: 32px;
+
+  &__head {
+    padding: 40px 8px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__title {
+    font-size: 44px;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  &__sub {
+    font-size: 26px;
+    color: #8c8c8c;
+  }
+
+  &__card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__card-title {
+    font-size: 32px;
+    font-weight: 500;
+    color: #1a1a1a;
+  }
+
+  &__card-desc {
+    font-size: 26px;
+    color: #8c8c8c;
+  }
+
+  &__card-meta {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 8px;
+  }
+
+  &__card-category {
+    font-size: 24px;
+    color: #5a5a5a;
+    background: #f0f1f3;
+    border-radius: 8px;
+    padding: 4px 16px;
+  }
+}
